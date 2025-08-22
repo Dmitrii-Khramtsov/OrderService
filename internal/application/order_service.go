@@ -25,8 +25,24 @@ func NewOrderService(c cache.Cache) OrderServiceInterface {
 	}
 }
 
-func (s *orderService) AddOrder(order entities.Order) {
+// func (s *orderService) AddOrder(order entities.Order) {
+// 	s.cache.Set(order.OrderUID, order)
+// }
+
+func (s *orderService) AddOrUpdateOrder(order entities.Order) (string, bool) {
+	existing, found := s.cache.Get(order.OrderUID)
+
+	if !found {
+		s.cache.Set(order.OrderUID, order)
+		return "created", true
+	}
+
+	if existing.Equal(order) {
+		return "exists", true
+	}
+
 	s.cache.Set(order.OrderUID, order)
+	return "update", true
 }
 
 func (s *orderService) GetOrder(id string) (entities.Order, bool) {

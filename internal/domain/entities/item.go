@@ -14,3 +14,18 @@ type Item struct {
 	Brand       string `json:"brand"`
 	Status      int    `json:"status"`
 }
+
+func (i *Item) Equal(other Item) bool {
+	return i.ChrtID == other.ChrtID &&
+		     i.TrackNumber == other.TrackNumber &&
+		     i.Price == other.Price &&
+		     i.RID == other.RID &&
+		     i.Name == other.Name &&
+		     i.Sale == other.Sale &&
+		     i.Size == other.Size &&
+		     i.TotalPrice == other.TotalPrice &&
+		     i.NmID == other.NmID &&
+		     i.Brand == other.Brand &&
+		     i.Price == other.Status &&
+		     true
+}
