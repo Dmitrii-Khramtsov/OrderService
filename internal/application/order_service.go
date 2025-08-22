@@ -7,7 +7,7 @@ import (
 )
 
 type OrderServiceInterface interface {
-	AddOrUpdateOrder(order entities.Order) (string, bool)
+	SaveOrder(order entities.Order) OrderResult
 	GetOrder(id string) (entities.Order, bool)
 	GetAllOrder() []entities.Order
 	DelOrder(id string) bool
@@ -25,24 +25,28 @@ func NewOrderService(c cache.Cache) OrderServiceInterface {
 	}
 }
 
-// func (s *orderService) AddOrder(order entities.Order) {
-// 	s.cache.Set(order.OrderUID, order)
-// }
+type OrderResult string
 
-func (s *orderService) AddOrUpdateOrder(order entities.Order) (string, bool) {
+const (
+	OrderCreated OrderResult = "created"
+	OrderUpdated OrderResult = "updated"
+	OrderExists  OrderResult = "exists"
+)
+
+func (s *orderService) SaveOrder(order entities.Order) OrderResult {
 	existing, found := s.cache.Get(order.OrderUID)
 
 	if !found {
 		s.cache.Set(order.OrderUID, order)
-		return "created", true
+		return OrderCreated
 	}
 
 	if existing.Equal(order) {
-		return "exists", true
+		return OrderExists
 	}
 
 	s.cache.Set(order.OrderUID, order)
-	return "update", true
+	return OrderUpdated
 }
 
 func (s *orderService) GetOrder(id string) (entities.Order, bool) {

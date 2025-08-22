@@ -81,24 +81,42 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 			Status:    false,
 			Message:   "order_id is required",
 		})
-
 		fmt.Printf("order_id не может быть пустым: %v\n", req.OrderUID)
 		return
 	}
 
-	h.svc.AddOrUpdateOrder(req)
+	result := h.svc.SaveOrder(req)
 
-	WriteJSON(w, http.StatusCreated, req)
+	statusHTTP := http.StatusInternalServerError
+	message := "unexpected status"
+
+	switch result {
+	case application.OrderCreated:
+		statusHTTP = http.StatusCreated
+		message = "order created"
+	case application.OrderUpdated:
+		statusHTTP = http.StatusOK
+		message = "order updated"
+	case application.OrderExists:
+		statusHTTP = http.StatusNotModified
+		message = "order already exists"
+	}
+
+	WriteJSON(w, statusHTTP, Operation{
+		Operation: "post",
+		Status:    true,
+		Message:   message,
+	})
 
 	b, _ := json.MarshalIndent(req, "", "  ")
-	fmt.Println("Заказ добавлен:", string(b))
+	fmt.Println("Результат операции:", message, string(b))
 }
 
 func (h *OrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	id := chi.URLParam(r, "id")
 
-	del := h.svc.DelOrder(id) //cache.Delete(id)
+	del := h.svc.DelOrder(id)
 	if !del {
 		WriteJSON(w, http.StatusNotFound, Operation{
 			Operation: "delete",
