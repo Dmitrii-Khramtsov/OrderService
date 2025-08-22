@@ -7,7 +7,7 @@ import (
 )
 
 type OrderServiceInterface interface {
-	AddOrder(order entities.Order)
+	AddOrUpdateOrder(order entities.Order) (string, bool)
 	GetOrder(id string) (entities.Order, bool)
 	GetAllOrder() []entities.Order
 	DelOrder(id string) bool

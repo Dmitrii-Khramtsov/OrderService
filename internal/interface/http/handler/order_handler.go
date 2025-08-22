@@ -86,7 +86,7 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.svc.AddOrder(req)
+	h.svc.AddOrUpdateOrder(req)
 
 	WriteJSON(w, http.StatusCreated, req)
 
