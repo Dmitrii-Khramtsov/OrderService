@@ -1,6 +1,11 @@
 // github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities/order.go
 package entities
 
+import (
+	"errors"
+	"strings"
+)
+
 type Order struct {
 	OrderUID        string   `json:"order_uid"`
 	TrackNumber     string   `json:"track_number"`
@@ -57,10 +62,32 @@ func (o *Order) Equal(other Order) bool {
 	}
 
 	for i := range o.Items {
-		if !o.Items[i].Equal(other.Items[i]){
+		if !o.Items[i].Equal(other.Items[i]) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func (o Order) Validate() error {
+	if o.OrderUID == "" {
+		return errors.New("order_uid is required")
+	}
+	if o.TrackNumber == "" {
+		return errors.New("track_number is required")
+	}
+	if len(o.Items) == 0 {
+		return errors.New("items cannot be empty")
+	}
+	if o.Payment.Amount <= 0 {
+		return errors.New("payment amount must be > 0")
+	}
+	if o.Delivery.Email != "" && !strings.Contains(o.Delivery.Email, "@") {
+		return errors.New("invalid email format")
+	}
+	if !strings.HasPrefix(o.Delivery.Phone, "+") {
+		return errors.New("phone must start with +")
+	}
+	return nil
 }

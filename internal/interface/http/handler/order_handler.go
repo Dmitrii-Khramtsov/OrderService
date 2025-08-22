@@ -75,17 +75,15 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	if req.OrderUID == "" {
+	result, err := h.svc.SaveOrder(req)
+	if err != nil {
 		WriteJSON(w, http.StatusBadRequest, Operation{
 			Operation: "post",
 			Status:    false,
-			Message:   "order_id is required",
+			Message:   err.Error(),
 		})
-		fmt.Printf("order_id не может быть пустым: %v\n", req.OrderUID)
 		return
 	}
-
-	result := h.svc.SaveOrder(req)
 
 	statusHTTP := http.StatusInternalServerError
 	message := "unexpected status"
