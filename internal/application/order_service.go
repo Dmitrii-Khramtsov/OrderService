@@ -3,6 +3,7 @@ package application
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
@@ -20,14 +21,14 @@ type OrderServiceInterface interface {
 }
 
 type orderService struct {
-	cache cache.Cache
+	cache  cache.Cache
 	logger logger.LoggerInterface
 	// db    repositories.Repository
 }
 
 func NewOrderService(c cache.Cache, l logger.LoggerInterface) OrderServiceInterface {
 	return &orderService{
-		cache: c,
+		cache:  c,
 		logger: l,
 	}
 }
@@ -41,11 +42,19 @@ const (
 )
 
 func (s *orderService) SaveOrder(order entities.Order) (OrderResult, error) {
+	startTime := time.Now()
+	defer func() {
+		s.logger.Info("SaveOrder completed",
+			zap.String("order_id", order.OrderUID),
+			zap.Duration("duration", time.Since(startTime)),
+		)
+	}()
+
 	if err := order.Validate(); err != nil {
 		s.logger.Warn("order validation failed",
-		zap.String("order_id", order.OrderUID),
-		zap.Error(err),
-	)
+			zap.String("order_id", order.OrderUID),
+			zap.Error(err),
+		)
 		return "", fmt.Errorf("%w: %v", domain.ErrInvalidOrder, err)
 	}
 
@@ -93,4 +102,5 @@ func (s *orderService) DelOrder(id string) error {
 
 func (s *orderService) ClearOrder() {
 	s.cache.Clear()
+	s.logger.Info("all orders cleared")
 }

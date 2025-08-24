@@ -2,6 +2,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 
 	"go.uber.org/zap"
@@ -12,6 +13,7 @@ type LoggerInterface interface {
 	Warn(msg string, fields ...zap.Field)
 	Error(msg string, fields ...zap.Field)
 	Sync()
+	Shutdown(ctx context.Context) error
 }
 
 type Logger struct {
@@ -61,4 +63,12 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 
 func (l *Logger) Sync() {
 	l.zap.Sync()
+}
+
+func (l *Logger) Shutdown(ctx context.Context) error {
+	if err := l.zap.Sync(); err != nil {
+		l.zap.Error("logger sync failed", zap.Error(err))
+		return err
+	}
+	return nil
 }

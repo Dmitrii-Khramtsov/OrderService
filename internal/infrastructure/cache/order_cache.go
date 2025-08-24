@@ -2,9 +2,12 @@
 package cache
 
 import (
-	"fmt"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	"context"
 	"sync"
+
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	"go.uber.org/zap"
 )
 
 type Cache interface {
@@ -13,16 +16,19 @@ type Cache interface {
 	GetAll() ([]entities.Order, error)
 	Delete(orderID string) bool
 	Clear()
+	Shutdown(ctx context.Context) error
 }
 
 type orderCache struct {
 	sync.RWMutex
 	data map[string]entities.Order
+	logger logger.LoggerInterface
 }
 
-func NewOrderCache() Cache {
+func NewOrderCache(l logger.LoggerInterface) Cache {
 	return &orderCache{
 		data: make(map[string]entities.Order, 1000),
+		logger: l,
 	}
 }
 
@@ -56,11 +62,11 @@ func (c *orderCache) Delete(orderID string) bool {
 	_, exist := c.data[orderID]
 	if exist {
 		delete(c.data, orderID)
-		fmt.Printf("заказ с таким ID удалён: %v\n", orderID)
+		c.logger.Info("order deleted", zap.String("order_id", orderID))
 		return true
 	}
 
-	fmt.Printf("заказ с таким ID не удалён: %v\n", orderID)
+	c.logger.Info("order not deleted", zap.String("order_id", orderID))
 	return false
 }
 
@@ -68,4 +74,13 @@ func (c *orderCache) Clear() {
 	c.Lock()
 	defer c.Unlock()
 	c.data = make(map[string]entities.Order, 1000)
+	c.logger.Info("cache cleared")
+}
+
+func (c *orderCache) Shutdown(ctx context.Context) error {
+	c.Lock()
+	defer c.Unlock()
+	c.data = make(map[string]entities.Order, 1000)
+	c.logger.Info("cache cleared during shutdown")
+	return nil
 }
