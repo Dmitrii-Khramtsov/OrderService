@@ -2,79 +2,63 @@
 package logger
 
 import (
-	"fmt"
-	"io"
-	"os"
-	"time"
+	"errors"
+
+	"go.uber.org/zap"
 )
+
+type LoggerInterface interface {
+	Info(msg string, fields ...zap.Field)
+	Warn(msg string, fields ...zap.Field)
+	Error(msg string, fields ...zap.Field)
+	Sync()
+}
 
 type Logger struct {
-	writer   io.Writer
-	minLevel LogLevel
+	zap *zap.Logger
 }
 
-func NewLogger(writer io.Writer, minLevel LogLevel) *Logger {
-	return &Logger{
-		writer: writer,
-		minLevel: minLevel,
-	}
-}
-
-func NewDefaultLogger(minLevel LogLevel) *Logger {
-	return NewLogger(os.Stdout, minLevel)
-}
-
-type LogLevel int
+type mode string
 
 const (
-	INFO LogLevel = iota
-	WARN
-	ERROR
+	DEV  mode = "development"
+	PROD mode = "production"
 )
 
-func (lev LogLevel) String() string {
-	switch lev {
-	case INFO:
-		return "INFO"
-	case WARN:
-		return "WARN"
-	case ERROR:
-		return "ERROR"
+var ErrLoggerInit = errors.New("failed to initialize logger")
+
+func NewLogger(m mode) (LoggerInterface, error) {
+	var z *zap.Logger
+	var err error
+
+	switch m {
+	case DEV:
+		z, err = zap.NewDevelopment()
+	case PROD:
+		z, err = zap.NewProduction()
 	default:
-		return "UNKNOWN"
-	}
-}
-
-func (l *Logger) Info(msg string) {
-	l.Log(INFO, msg)
-}
-
-func (l *Logger) Warn(msg string) {
-    l.Log(WARN, msg)
-}
-
-func (l *Logger) Error(msg string) {
-    l.Log(ERROR, msg)
-}
-
-func (l *Logger) Infof(format string, args... interface{}) {
-	l.Log(INFO, fmt.Sprintf(format, args...))
-}
-
-func (l *Logger) Warnf(format string, args... interface{}) {
-	l.Log(WARN, fmt.Sprintf(format, args...))
-}
-
-func (l *Logger) Errorf(format string, args... interface{}) {
-	l.Log(ERROR, fmt.Sprintf(format, args...))
-}
-
-func (l *Logger) Log(level LogLevel, msg string) {
-	if level < l.minLevel {
-		return
+		z, err = zap.NewDevelopment()
 	}
 
-	now := time.Now().Format("2006-01-02 15:04:05")
+	if err != nil {
+		return nil, ErrLoggerInit
+	}
 
-	fmt.Fprintf(l.writer, "[%s] [%s] %s\n", now, level.String(), msg)
+	return &Logger{zap: z}, nil
+}
+
+func (l *Logger) Info(msg string, fields ...zap.Field) {
+	l.zap.Info(msg, fields...)
+}
+
+func (l *Logger) Warn(msg string, fields ...zap.Field) {
+	l.zap.Warn(msg, fields...)
+}
+
+func (l *Logger) Error(msg string, fields ...zap.Field) {
+	l.zap.Error(msg, fields...)
+}
+
+func (l *Logger) Sync() {
+	l.zap.Sync()
 }

@@ -10,7 +10,7 @@ import (
 type Cache interface {
 	Set(orderID string, order entities.Order)
 	Get(orderID string) (entities.Order, bool)
-	GetAll() []entities.Order
+	GetAll() ([]entities.Order, error)
 	Delete(orderID string) bool
 	Clear()
 }
@@ -38,14 +38,15 @@ func (c *orderCache) Get(orderID string) (entities.Order, bool) {
 	order, exist := c.data[orderID]
 	return order, exist
 }
-func (c *orderCache) GetAll() []entities.Order {
+
+func (c *orderCache) GetAll() ([]entities.Order, error) {
 	c.RLock()
 	defer c.RUnlock()
 	orders := make([]entities.Order, 0, len(c.data))
 	for _, ord := range c.data {
 		orders = append(orders, ord)
 	}
-	return orders
+	return orders, nil
 }
 
 func (c *orderCache) Delete(orderID string) bool {

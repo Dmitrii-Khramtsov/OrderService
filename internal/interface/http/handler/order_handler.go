@@ -3,148 +3,97 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/application"
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	httperrors "github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type OrderHandler struct {
-	svc application.OrderServiceInterface
+	svc    application.OrderServiceInterface
+	logger logger.LoggerInterface
 }
 
-func NewOrderHandler(s application.OrderServiceInterface) *OrderHandler {
+func NewOrderHandler(s application.OrderServiceInterface, l logger.LoggerInterface) *OrderHandler {
 	return &OrderHandler{
-		svc: s,
+		svc:    s,
+		logger: l,
 	}
 }
 
-func (h *OrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	id := chi.URLParam(r, "id")
-
-	resp, exist := h.svc.GetOrder(id)
-	if !exist {
-		WriteJSON(w, http.StatusNotFound, Operation{
-			Operation: "get",
-			Status:    false,
-			Message:   "order not found",
-		})
-
-		fmt.Printf("Заказа с таким ID не существует: %v\n", id)
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		http.Error(w, "failed to encode JSON", http.StatusInternalServerError)
-		fmt.Println("Анкодинг JSON не сработал")
-		return
-	}
-}
-
-func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	orders := h.svc.GetAllOrder()
-
-	if len(orders) == 0 {
-		if err := json.NewEncoder(w).Encode([]entities.Order{}); err != nil {
-			http.Error(w, "failed to encode JSON", http.StatusInternalServerError)
-			fmt.Println("Анкодинг JSON не сработал")
-			return
-		}
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(orders); err != nil {
-		http.Error(w, "failed ti encod JSON", http.StatusInternalServerError)
-		fmt.Println("Анкодинг JSON не сработал")
-	}
-}
-
-func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var req entities.Order
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		fmt.Println("Декодирование JSON не сработало")
-		return
-	}
-	defer r.Body.Close()
-
-	result, err := h.svc.SaveOrder(req)
-	if err != nil {
-		WriteJSON(w, http.StatusBadRequest, Operation{
-			Operation: "post",
-			Status:    false,
-			Message:   err.Error(),
-		})
-		return
-	}
-
-	statusHTTP := http.StatusInternalServerError
-	message := "unexpected status"
-
-	switch result {
-	case application.OrderCreated:
-		statusHTTP = http.StatusCreated
-		message = "order created"
-	case application.OrderUpdated:
-		statusHTTP = http.StatusOK
-		message = "order updated"
-	case application.OrderExists:
-		statusHTTP = http.StatusNotModified
-		message = "order already exists"
-	}
-
-	WriteJSON(w, statusHTTP, Operation{
-		Operation: "post",
-		Status:    true,
-		Message:   message,
-	})
-
-	b, _ := json.MarshalIndent(req, "", "  ")
-	fmt.Println("Результат операции:", message, string(b))
-}
-
-func (h *OrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	id := chi.URLParam(r, "id")
-
-	del := h.svc.DelOrder(id)
-	if !del {
-		WriteJSON(w, http.StatusNotFound, Operation{
-			Operation: "delete",
-			Status:    false,
-			Message:   "order not found",
-		})
-
-		fmt.Printf("Заказа с таким ID не существует: %v\n", id)
-		return
-	}
-
-	WriteJSON(w, http.StatusOK, Operation{
-		Operation: "delete",
-		Status:    true,
-		Message:   "successfully deleted",
-	})
-}
-
-func WriteJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(w http.ResponseWriter, l logger.LoggerInterface, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "failed to encode JSON", http.StatusInternalServerError)
-		fmt.Println("Анкодинг JSON не сработал")
+		l.Error("failed to encode JSON response", zap.Error(err))
+		http.Error(w, `{"error": "`+httperrors.ErrJSONEncodeFailed.Error()+`"}`, http.StatusInternalServerError)
 	}
 }
 
-type Operation struct {
-	Operation string `json:"operation"`
-	Status    bool   `json:"status"`
-	Message   string `json:"message"`
+func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var order entities.Order
+	if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
+		h.logger.Warn("failed to decode order request", zap.Error(err), zap.String("error_type", httperrors.ErrInvalidJSON.Error()))
+		writeJSON(w, h.logger, http.StatusBadRequest, map[string]string{"error": httperrors.ErrInvalidJSON.Error()})
+		return
+	}
+
+	result, err := h.svc.SaveOrder(order)
+	if errors.Is(err, domain.ErrInvalidOrder) {
+		h.logger.Warn("invalid order data", zap.String("order_id", order.OrderUID), zap.Error(err))
+		writeJSON(w, h.logger, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("order saved successfully", zap.String("order_id", order.OrderUID), zap.String("result", string(result)))
+	writeJSON(w, h.logger, http.StatusOK, map[string]string{
+		"order_id": order.OrderUID,
+		"result":   string(result),
+	})
+}
+
+func (h *OrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	order, err := h.svc.GetOrder(id)
+	if errors.Is(err, domain.ErrOrderNotFound) {
+		writeJSON(w, h.logger, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("order retrieved successfully", zap.String("order_id", id))
+	writeJSON(w, h.logger, http.StatusOK, order)
+}
+
+func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
+	orders, _ := h.svc.GetAllOrder()
+
+	h.logger.Info("orders retrieved successfully", zap.Int("count", len(orders)))
+	writeJSON(w, h.logger, http.StatusOK, orders)
+}
+
+func (h *OrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	err := h.svc.DelOrder(id)
+	if errors.Is(err, domain.ErrOrderNotFound) {
+		writeJSON(w, h.logger, http.StatusNotFound, map[string]string{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("order deleted successfully", zap.String("order_id", id))
+	writeJSON(w, h.logger, http.StatusOK, map[string]string{"status": "deleted", "order_id": id})
+}
+
+func (h *OrderHandler) Clear(w http.ResponseWriter, r *http.Request) {
+	h.svc.ClearOrder()
+	h.logger.Info("all orders cleared")
+	writeJSON(w, h.logger, http.StatusOK, map[string]string{"status": "cleared"})
 }
