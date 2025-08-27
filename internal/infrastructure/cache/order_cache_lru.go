@@ -24,7 +24,7 @@ type orderLRUCache struct {
 	logger   logger.LoggerInterface
 }
 
-func newOrderCache(l logger.LoggerInterface, capacity int) Cache {
+func NewOrderLRUCache(l logger.LoggerInterface, capacity int) Cache {
 	return &orderLRUCache{
 		capacity: capacity,
 		cache:    make(map[string]*list.Element, 1000),
@@ -41,7 +41,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 		entry := elem.Value.(*entry)
 		entry.value = order
 		c.ll.MoveToFront(elem)
-		c.logger.Info("Order updated in cache", zap.String("order_id", orderID))
+		c.logger.Info("order updated in cache", zap.String("order_id", orderID))
 		return
 	}
 
@@ -51,6 +51,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 			lastEntry := lastElem.Value.(*entry)
 			delete(c.cache, lastEntry.kay)
 			c.ll.Remove(lastElem)
+			c.logger.Info("cache execeeded, most unused order deleted", zap.String("order_id", lastEntry.kay))
 		}
 	}
 
@@ -66,7 +67,7 @@ func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
 	if elem, exist := c.cache[orderID]; exist {
 		c.ll.MoveToFront(elem)
 		entry := elem.Value.(*entry)
-		c.logger.Info("Retrieved order from cache", zap.String("order_id", orderID))
+		c.logger.Info("retrieved order from cache", zap.String("order_id", orderID))
 		return entry.value, true
 	}
 
@@ -74,7 +75,38 @@ func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
 	return entities.Order{}, false
 }
 
-func (c *orderLRUCache) GetAll() ([]entities.Order, error)
+func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
+	c.RWMutex.RLock()
+	defer c.RWMutex.RUnlock()
+
+	if limit <= 0 {
+		c.logger.Info("limit is less than or equal to zero, returning empty slice", zap.Int("limit", limit))
+		return []entities.Order{}, nil
+	}
+
+	capacity := limit
+	if len(c.cache) < limit {
+		capacity = len(c.cache)
+		c.logger.Info("limit exceeds cache size, adjusting capacity",
+			zap.Int("limit", limit),
+			zap.Int("cache_size", len(c.cache)),
+			zap.Int("adjusted_capacity", capacity))
+	}
+
+	orders := make([]entities.Order, 0, capacity)
+	count := 0
+	for elem := c.ll.Front(); elem != nil && count < limit; elem = elem.Next() {
+		entry := elem.Value.(*entry)
+		orders = append(orders, entry.value)
+		count++
+	}
+
+	c.logger.Info("Retrieved orders from cache",
+		zap.Int("requested_limit", limit),
+		zap.Int("returned_count", count))
+
+	return orders, nil
+}
 
 func (c *orderLRUCache) Delete(orderID string) bool
 

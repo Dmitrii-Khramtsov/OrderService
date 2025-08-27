@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/application"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
 	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/kafka"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
@@ -34,12 +36,17 @@ type App struct {
 }
 
 func NewApp() (*App, error) {
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
 	l, err := newLogger()
 	if err != nil {
 		return nil, err
 	}
 
-	c := newCache(l)
+	c := newCache(l, cfg.Cache.Capacity)
 	db, err := newDatabaseConnection(l)
 	if err != nil {
 		return nil, err
@@ -58,7 +65,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	svc := newOrderService(c, l, rp)
+	svc := newOrderService(c, l, rp, cfg.Cache.GetAllLimit)
 	h := newOrderHandler(svc, l)
 
 	brokers := os.Getenv("KAFKA_BROKERS")
@@ -94,8 +101,8 @@ func newLogger() (logger.LoggerInterface, error) {
 	return logger.NewLogger(mode)
 }
 
-func newCache(l logger.LoggerInterface) cache.Cache {
-	return cache.NewOrderCache(l)
+func newCache(l logger.LoggerInterface, capacity int) cache.Cache {
+	return cache.NewOrderLRUCache(l, capacity)
 }
 
 func newDatabaseConnection(l logger.LoggerInterface) (*sql.DB, error) {
@@ -121,8 +128,8 @@ func newPostgresOrderRepository(dsn string, l logger.LoggerInterface) (repo.Orde
 	return repo.NewPostgresOrderRepository(dsn, l)
 }
 
-func newOrderService(c cache.Cache, l logger.LoggerInterface, rp repo.OrderRepository) application.OrderServiceInterface {
-	return application.NewOrderService(c, l, rp)
+func newOrderService(c cache.Cache, l logger.LoggerInterface, rp repo.OrderRepository, limit int) application.OrderServiceInterface {
+	return application.NewOrderService(c, l, rp, limit)
 }
 
 func newOrderHandler(svc application.OrderServiceInterface, l logger.LoggerInterface) *handler.OrderHandler {

@@ -27,13 +27,15 @@ type orderService struct {
 	cache  cache.Cache
 	logger logger.LoggerInterface
 	repo   repository.OrderRepository
+	getAllLimit int
 }
 
-func NewOrderService(c cache.Cache, l logger.LoggerInterface, r repository.OrderRepository) OrderServiceInterface {
+func NewOrderService(c cache.Cache, l logger.LoggerInterface, r repository.OrderRepository, limit int) OrderServiceInterface {
 	return &orderService{
 		cache:  c,
 		logger: l,
 		repo:   r,
+		getAllLimit: limit,
 	}
 }
 
@@ -172,7 +174,11 @@ func (s *orderService) ClearOrder(ctx context.Context) error {
 }
 
 func (s *orderService) GetAllOrder(ctx context.Context) ([]entities.Order, error) {
-	orders, err := s.cache.GetAll()
+	orders, err := s.cache.GetAll(s.getAllLimit)
+	if err != nil {
+		s.logger.Error("failed to retrieve orders from cache", zap.Error(err))
+		return nil, fmt.Errorf("failed to retrieve orders from cache: %w", err)
+	}
 	s.logger.Info("retrieved all orders from cache", zap.Int("count", len(orders)))
 	return orders, err
 }

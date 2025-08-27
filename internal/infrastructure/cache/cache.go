@@ -10,7 +10,7 @@ import (
 type Cache interface {
 	Set(orderID string, order entities.Order)
 	Get(orderID string) (entities.Order, bool)
-	GetAll() ([]entities.Order, error)
+	GetAll(limit int) ([]entities.Order, error)
 	Delete(orderID string) bool
 	Clear()
 	Shutdown(ctx context.Context) error
