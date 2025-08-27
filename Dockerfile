@@ -1,11 +1,14 @@
-FROM golang:1.24 AS builder
-WORKDIR /l0_order/src/orderservice
+# github.com/Dmitrii-Khramtsov/orderservice/Dockerfile
+FROM golang:1.24.1-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN go mod tidy
-RUN go build -o orderservice
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o orderservice ./cmd/server
 
-FROM debian:bookworm-slim
-WORKDIR /l0_order/src/orderservice
-COPY --from=builder /l0_order/src/orderservice .
-EXPOSE 8080
+FROM alpine:latest
+WORKDIR /app
+COPY --from=builder /app/orderservice ./
+COPY --from=builder /app/web ./web
+EXPOSE 8081
 CMD ["./orderservice"]

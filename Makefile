@@ -1,20 +1,37 @@
-BINARY_NAME := l0
-SOURCE_DIR := .
+# github.com/Dmitrii-Khramtsov/orderservice/Makefile
+BINARY_NAME := orderservice
 GO_LINT := golangci-lint
+
+.PHONY: all build run docker-up docker-down docker-logs lint test clean deps script-up help
 
 all: build
 
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@go build -o $(BINARY_NAME) ./cmd
+	@go build -ldflags="-s -w" -o $(BINARY_NAME) ./cmd/server
 
 run: build
-	@echo "Running $(BINARY_NAME)..."
+	@echo "Running $(BINARY_NAME) locally..."
 	@./$(BINARY_NAME)
+
+docker-up:
+	@echo "Starting services via Docker Compose..."
+	@docker compose up -d --build
+
+docker-down:
+	@echo "Stopping services via Docker Compose..."
+	@docker compose down
+
+docker-logs:
+	@echo "Showing Docker Compose logs..."
+	@docker compose logs -f
+
+script-up:
+	@echo "Running script via Docker Compose..."
+	@docker compose up script
 
 lint:
 	@echo "Linting Go files..."
-# ./... — специальный синтаксис Go, означающий "все пакеты в текущей директории и её подпапках рекурсивно".
 	@$(GO_LINT) run ./...
 
 test:
@@ -25,7 +42,6 @@ clean:
 	@echo "Cleaning..."
 	@rm -f $(BINARY_NAME)
 
-# Установка зависимостей (go mod tidy + линтер)
 deps:
 	@echo "Installing dependencies..."
 	@go mod tidy
@@ -33,10 +49,13 @@ deps:
 
 help:
 	@echo "Available commands:"
-	@echo "  make build    - Build the project"
-	@echo "  make run      - Build and run the project"
-	@echo "  make lint     - Run linter for all Go files"
-	@echo "  make test     - Run all tests with race detection"
-	@echo "  make clean    - Remove binary file"
-	@echo "  make deps     - Install Go dependencies and linter"
-	@echo "  make help     - Show this help"
+	@echo "  make build           - Build the project"
+	@echo "  make run             - Run the project locally"
+	@echo "  make lint            - Run linter for all Go files"
+	@echo "  make test            - Run all tests with race detection"
+	@echo "  make clean           - Remove binary file"
+	@echo "  make deps            - Install Go dependencies and linter"
+	@echo "  make docker-up       - Start services via Docker Compose"
+	@echo "  make docker-down     - Stop Docker Compose services"
+	@echo "  make docker-logs     - Tail Docker Compose logs"
+	@echo "  make script-up       - Run script via Docker Compose"

@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/cmd/server/main.go
 package main
 
 import (
@@ -9,12 +10,12 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/app"
+	_ "github.com/lib/pq"
+
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap"
 )
 
 	func main() {
-		// пока не через докер
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: failed to load .env file: %v", err)
 	}
