@@ -10,14 +10,14 @@ import (
 	"go.uber.org/zap"
 )
 
-type Cache interface {
-	Set(orderID string, order entities.Order)
-	Get(orderID string) (entities.Order, bool)
-	GetAll() ([]entities.Order, error)
-	Delete(orderID string) bool
-	Clear()
-	Shutdown(ctx context.Context) error
-}
+// type Cache interface {
+// 	Set(orderID string, order entities.Order)
+// 	Get(orderID string) (entities.Order, bool)
+// 	GetAll() ([]entities.Order, error)
+// 	Delete(orderID string) bool
+// 	Clear()
+// 	Shutdown(ctx context.Context) error
+// }
 
 type orderCache struct {
 	sync.RWMutex
@@ -80,7 +80,10 @@ func (c *orderCache) Clear() {
 func (c *orderCache) Shutdown(ctx context.Context) error {
 	c.Lock()
 	defer c.Unlock()
+
+
 	c.data = make(map[string]entities.Order, 1000)
+
 	c.logger.Info("cache cleared during shutdown")
 	return nil
 }
