@@ -12,7 +12,7 @@ import (
 )
 
 type entry struct {
-	kay   string
+	key   string
 	value entities.Order
 }
 
@@ -49,13 +49,13 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 		lastElem := c.ll.Back()
 		if lastElem != nil {
 			lastEntry := lastElem.Value.(*entry)
-			delete(c.cache, lastEntry.kay)
+			delete(c.cache, lastEntry.key)
 			c.ll.Remove(lastElem)
-			c.logger.Info("cache execeeded, most unused order deleted", zap.String("order_id", lastEntry.kay))
+			c.logger.Info("cache execeeded, most unused order deleted", zap.String("order_id", lastEntry.key))
 		}
 	}
 
-	newEntry := &entry{kay: orderID, value: order}
+	newEntry := &entry{key: orderID, value: order}
 	newElem := c.ll.PushFront(newEntry)
 	c.cache[orderID] = newElem
 }
@@ -138,7 +138,7 @@ func (c *orderLRUCache) Shutdown(ctx context.Context) error {
 
 	c.cache = make(map[string]*list.Element, 1000)
 	c.ll.Init()
-	
+
 	c.logger.Info("cache cleared during shutdown")
 	return nil
 }
