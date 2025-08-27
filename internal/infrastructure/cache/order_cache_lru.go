@@ -108,8 +108,37 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 	return orders, nil
 }
 
-func (c *orderLRUCache) Delete(orderID string) bool
+func (c *orderLRUCache) Delete(orderID string) bool {
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
 
-func (c *orderLRUCache) Clear()
+	if elem, exist := c.cache[orderID]; exist {
+		c.ll.Remove(elem)
+		delete(c.cache, orderID)
+		c.logger.Info("order deleted", zap.String("order_id", orderID))
+		return true
+	}
 
-func (c *orderLRUCache) Shutdown(ctx context.Context) error
+	c.logger.Info("order not deleted", zap.String("order_id", orderID))
+	return false
+}
+
+func (c *orderLRUCache) Clear() {
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
+
+	c.cache = make(map[string]*list.Element, 1000)
+	c.ll.Init()
+	c.logger.Info("cache cleared")
+}
+
+func (c *orderLRUCache) Shutdown(ctx context.Context) error {
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
+
+	c.cache = make(map[string]*list.Element, 1000)
+	c.ll.Init()
+	
+	c.logger.Info("cache cleared during shutdown")
+	return nil
+}
