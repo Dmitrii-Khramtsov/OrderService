@@ -25,9 +25,13 @@ type orderLRUCache struct {
 }
 
 func NewOrderLRUCache(l logger.LoggerInterface, capacity int) Cache {
+	if capacity <= 0 {
+		capacity = -1
+		l.Info("cache capacity is set to unlimited")
+	}
 	return &orderLRUCache{
 		capacity: capacity,
-		cache:    make(map[string]*list.Element, 1000),
+		cache:    make(map[string]*list.Element, capacity),
 		ll:       list.New(),
 		logger:   l,
 	}
@@ -35,23 +39,30 @@ func NewOrderLRUCache(l logger.LoggerInterface, capacity int) Cache {
 
 func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 	c.RWMutex.Lock()
-	defer c.RWMutex.Unlock()
+	defer c.RWMutex.RUnlock()
 
 	if elem, exist := c.cache[orderID]; exist {
+		// разблокируем на время перемещения элемента
+		c.RWMutex.RUnlock()
+		c.RWMutex.Lock()
+		c.ll.MoveToFront(elem)
+		c.RWMutex.Unlock()
+		// блокируем снова для возврата значения
+		c.RWMutex.RLock()
+
 		entry := elem.Value.(*entry)
 		entry.value = order
-		c.ll.MoveToFront(elem)
 		c.logger.Info("order updated in cache", zap.String("order_id", orderID))
 		return
 	}
 
-	if c.ll.Len() >= c.capacity {
+	if c.capacity > 0 && c.ll.Len() >= c.capacity {
 		lastElem := c.ll.Back()
 		if lastElem != nil {
 			lastEntry := lastElem.Value.(*entry)
 			delete(c.cache, lastEntry.key)
 			c.ll.Remove(lastElem)
-			c.logger.Info("cache execeeded, most unused order deleted", zap.String("order_id", lastEntry.key))
+			c.logger.Info("cache exceeded, most unused order deleted", zap.String("order_id", lastEntry.key))
 		}
 	}
 
@@ -61,8 +72,8 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 }
 
 func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
-	c.RWMutex.RLock()
-	defer c.RWMutex.RUnlock()
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
 
 	if elem, exist := c.cache[orderID]; exist {
 		c.ll.MoveToFront(elem)
@@ -127,7 +138,12 @@ func (c *orderLRUCache) Clear() {
 	c.RWMutex.Lock()
 	defer c.RWMutex.Unlock()
 
-	c.cache = make(map[string]*list.Element, 1000)
+	cacheCapacity := c.capacity
+	if cacheCapacity <= 0 {
+		cacheCapacity = 0
+	}
+
+	c.cache = make(map[string]*list.Element, cacheCapacity)
 	c.ll.Init()
 	c.logger.Info("cache cleared")
 }
@@ -136,7 +152,12 @@ func (c *orderLRUCache) Shutdown(ctx context.Context) error {
 	c.RWMutex.Lock()
 	defer c.RWMutex.Unlock()
 
-	c.cache = make(map[string]*list.Element, 1000)
+	cacheCapacity := c.capacity
+	if cacheCapacity <= 0 {
+		cacheCapacity = 0
+	}
+
+	c.cache = make(map[string]*list.Element, cacheCapacity)
 	c.ll.Init()
 
 	c.logger.Info("cache cleared during shutdown")
