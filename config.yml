@@ -1,3 +1,6 @@
 cache:
   capacity: 10000
   get_all_limit: 1000
+
+migrations:
+  migrations_path: ./migrations

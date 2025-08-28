@@ -54,7 +54,7 @@ func NewApp() (*App, error) {
 	defer db.Close()
 
 	ctx := context.Background()
-	if err := runMigrations(ctx, db, l); err != nil {
+	if err := runMigrations(ctx, db, cfg.Migrations.MigrationsPath, l); err != nil {
 		l.Error("failed to run migrations", zap.Error(err))
 		return nil, err
 	}
@@ -115,8 +115,8 @@ func newDatabaseConnection(l logger.LoggerInterface) (*sql.DB, error) {
 	return db, nil
 }
 
-func runMigrations(ctx context.Context, db *sql.DB, l logger.LoggerInterface) error {
-	if err := migrations.RunMigrations(ctx, db, l); err != nil {
+func runMigrations(ctx context.Context, db *sql.DB, migrationsPath string,  l logger.LoggerInterface) error {
+	if err := migrations.RunMigrations(ctx, db, migrationsPath, l); err != nil {
 		l.Error("failed to run migrations", zap.Error(err))
 		return err
 	}
