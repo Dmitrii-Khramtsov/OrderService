@@ -31,7 +31,7 @@ func NewOrderLRUCache(l logger.LoggerInterface, capacity int) Cache {
 	}
 	return &orderLRUCache{
 		capacity: capacity,
-		cache:    make(map[string]*list.Element, capacity),
+		cache:    make(map[string]*list.Element, max(0, capacity)),
 		ll:       list.New(),
 		logger:   l,
 	}
@@ -45,7 +45,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 		entry := elem.Value.(*entry)
 		entry.value = order
 		c.ll.MoveToFront(elem)
-		c.logger.Info("order updated in cache", zap.String("order_id", orderID))
+		c.logger.Debug("order updated in cache", zap.String("order_id", orderID))
 		return
 	}
 
@@ -55,7 +55,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 			lastEntry := lastElem.Value.(*entry)
 			delete(c.cache, lastEntry.key)
 			c.ll.Remove(lastElem)
-			c.logger.Info("cache exceeded, most unused order deleted", zap.String("order_id", lastEntry.key))
+			c.logger.Debug("cache exceeded, most unused order deleted", zap.String("order_id", lastEntry.key))
 		}
 	}
 
@@ -65,29 +65,18 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 }
 
 func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
-	c.RWMutex.RLock()
-	elem, exist := c.cache[orderID]
+	c.Lock()
+	defer c.Unlock()
 
+	elem, exist := c.cache[orderID]
 	if !exist {
-		c.RWMutex.RUnlock()
-		c.logger.Info("there is no such order", zap.String("order_id", orderID))
+		c.logger.Debug("there is no such order", zap.String("order_id", orderID))
 		return entities.Order{}, false
 	}
 
-	// разблокируем мьютекс на чтение
-	c.RWMutex.RUnlock()
-
-	// блокируем на запись для перемещения элемента
-	c.RWMutex.Lock()
 	c.ll.MoveToFront(elem)
-	c.RWMutex.Unlock()
-
-	// блокируем на чтение для возврата значения
-	c.RWMutex.RLock()
-	defer c.RWMutex.RUnlock()
-
 	entry := elem.Value.(*entry)
-	c.logger.Info("retrieved order from cache", zap.String("order_id", orderID))
+	c.logger.Debug("retrieved order from cache", zap.String("order_id", orderID))
 	return entry.value, true
 }
 
@@ -96,14 +85,14 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 	defer c.RWMutex.RUnlock()
 
 	if limit <= 0 {
-		c.logger.Info("limit is less than or equal to zero, returning empty slice", zap.Int("limit", limit))
+		c.logger.Debug("limit is less than or equal to zero, returning empty slice", zap.Int("limit", limit))
 		return []entities.Order{}, nil
 	}
 
 	capacity := limit
 	if len(c.cache) < limit {
 		capacity = len(c.cache)
-		c.logger.Info("limit exceeds cache size, adjusting capacity",
+		c.logger.Debug("limit exceeds cache size, adjusting capacity",
 			zap.Int("limit", limit),
 			zap.Int("cache_size", len(c.cache)),
 			zap.Int("adjusted_capacity", capacity))
@@ -117,7 +106,7 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 		count++
 	}
 
-	c.logger.Info("Retrieved orders from cache",
+	c.logger.Debug("Retrieved orders from cache",
 		zap.Int("requested_limit", limit),
 		zap.Int("returned_count", count))
 
@@ -139,32 +128,26 @@ func (c *orderLRUCache) Delete(orderID string) bool {
 	return false
 }
 
-func (c *orderLRUCache) Clear() {
-	c.RWMutex.Lock()
-	defer c.RWMutex.Unlock()
-
+func (c *orderLRUCache) reset() {
 	cacheCapacity := c.capacity
 	if cacheCapacity <= 0 {
 		cacheCapacity = 0
 	}
-
 	c.cache = make(map[string]*list.Element, cacheCapacity)
 	c.ll.Init()
+}
+
+func (c *orderLRUCache) Clear() {
+	c.RWMutex.Lock()
+	defer c.RWMutex.Unlock()
+	c.reset()
 	c.logger.Info("cache cleared")
 }
 
 func (c *orderLRUCache) Shutdown(ctx context.Context) error {
 	c.RWMutex.Lock()
 	defer c.RWMutex.Unlock()
-
-	cacheCapacity := c.capacity
-	if cacheCapacity <= 0 {
-		cacheCapacity = 0
-	}
-
-	c.cache = make(map[string]*list.Element, cacheCapacity)
-	c.ll.Init()
-
+	c.reset()
 	c.logger.Info("cache cleared during shutdown")
 	return nil
 }

@@ -83,7 +83,7 @@ func (o Order) Validate() error {
 		return ErrTrackNumberRequired
 	case len(o.Items) == 0:
 		return ErrItemsEmpty
-	case o.Payment.Amount <= 0:
+	case o.Payment.Amount < 0:
 		return ErrInvalidPaymentAmount
 	case o.Delivery.Email != "" && !strings.Contains(o.Delivery.Email, "@"):
 		return ErrInvalidEmailFormat

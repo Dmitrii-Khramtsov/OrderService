@@ -13,6 +13,7 @@ import (
 
 type MockLogger struct{}
 
+func (m *MockLogger) Debug(msg string, fields ...zap.Field) {}
 func (m *MockLogger) Info(msg string, fields ...zap.Field)  {}
 func (m *MockLogger) Warn(msg string, fields ...zap.Field)  {}
 func (m *MockLogger) Error(msg string, fields ...zap.Field) {}
@@ -243,7 +244,6 @@ func TestOrderCache_GetAllOrder(t *testing.T) {
 	if len(orders) != 2 {
 		t.Errorf("Expected 2 orders, got %d", len(orders))
 	}
-
 
 	if orders[0].OrderUID != "orderA" {
 		t.Errorf("Expected first order to be 'orderA', got %v", orders[0].OrderUID)

@@ -9,6 +9,7 @@ import (
 )
 
 type LoggerInterface interface {
+	Debug(msg string, fields ...zap.Field)
 	Info(msg string, fields ...zap.Field)
 	Warn(msg string, fields ...zap.Field)
 	Error(msg string, fields ...zap.Field)
@@ -47,6 +48,10 @@ func NewLogger(m mode) (LoggerInterface, error) {
 	}
 
 	return &Logger{zap: z}, nil
+}
+
+func (l *Logger) Debug(msg string, fields ...zap.Field) {
+	l.zap.Debug(msg, fields...)
 }
 
 func (l *Logger) Info(msg string, fields ...zap.Field) {
