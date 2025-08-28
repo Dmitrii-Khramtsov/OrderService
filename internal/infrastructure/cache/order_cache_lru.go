@@ -39,19 +39,12 @@ func NewOrderLRUCache(l logger.LoggerInterface, capacity int) Cache {
 
 func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 	c.RWMutex.Lock()
-	defer c.RWMutex.RUnlock()
+	defer c.RWMutex.Unlock()
 
 	if elem, exist := c.cache[orderID]; exist {
-		// разблокируем на время перемещения элемента
-		c.RWMutex.RUnlock()
-		c.RWMutex.Lock()
-		c.ll.MoveToFront(elem)
-		c.RWMutex.Unlock()
-		// блокируем снова для возврата значения
-		c.RWMutex.RLock()
-
 		entry := elem.Value.(*entry)
 		entry.value = order
+		c.ll.MoveToFront(elem)
 		c.logger.Info("order updated in cache", zap.String("order_id", orderID))
 		return
 	}
@@ -72,18 +65,30 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 }
 
 func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
-	c.RWMutex.Lock()
-	defer c.RWMutex.Unlock()
+	c.RWMutex.RLock()
+	elem, exist := c.cache[orderID]
 
-	if elem, exist := c.cache[orderID]; exist {
-		c.ll.MoveToFront(elem)
-		entry := elem.Value.(*entry)
-		c.logger.Info("retrieved order from cache", zap.String("order_id", orderID))
-		return entry.value, true
+	if !exist {
+		c.RWMutex.RUnlock()
+		c.logger.Info("there is no such order", zap.String("order_id", orderID))
+		return entities.Order{}, false
 	}
 
-	c.logger.Info("there is no such order", zap.String("order_id", orderID))
-	return entities.Order{}, false
+	// разблокируем мьютекс на чтение
+	c.RWMutex.RUnlock()
+
+	// блокируем на запись для перемещения элемента
+	c.RWMutex.Lock()
+	c.ll.MoveToFront(elem)
+	c.RWMutex.Unlock()
+
+	// блокируем на чтение для возврата значения
+	c.RWMutex.RLock()
+	defer c.RWMutex.RUnlock()
+
+	entry := elem.Value.(*entry)
+	c.logger.Info("retrieved order from cache", zap.String("order_id", orderID))
+	return entry.value, true
 }
 
 func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
