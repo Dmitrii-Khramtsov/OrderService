@@ -34,6 +34,7 @@ type App struct {
 	Server        *http.Server
 	Logger        logger.LoggerInterface
 	Cache         cache.Cache
+	CacheRestorer *cache.CacheRestorer
 	Repo          repo.OrderRepository
 	Service       application.OrderServiceInterface
 	Handler       *handler.OrderHandler
@@ -65,6 +66,9 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cacheRestorer := factory.NewCacheRestorer(c, rp, l)
+
 	svc := application.NewOrderService(c, l, rp, cfg.Cache.GetAllLimit)
 
 	h := handler.NewOrderHandler(svc, l)
@@ -77,6 +81,7 @@ func NewApp() (*App, error) {
 		Server:        srv,
 		Logger:        l,
 		Cache:         c,
+		CacheRestorer: cacheRestorer,
 		Repo:          rp,
 		Service:       svc,
 		Handler:       h,

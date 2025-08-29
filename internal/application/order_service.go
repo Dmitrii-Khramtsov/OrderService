@@ -20,7 +20,6 @@ type OrderServiceInterface interface {
 	GetAllOrder(ctx context.Context) ([]entities.Order, error)
 	DelOrder(ctx context.Context, id string) error
 	ClearOrder(ctx context.Context) error
-	GetAllFromDB(ctx context.Context) ([]entities.Order, error)
 }
 
 type orderService struct {
@@ -181,8 +180,4 @@ func (s *orderService) GetAllOrder(ctx context.Context) ([]entities.Order, error
 	}
 	s.logger.Info("retrieved all orders from cache", zap.Int("count", len(orders)))
 	return orders, err
-}
-
-func (s *orderService) GetAllFromDB(ctx context.Context) ([]entities.Order, error) {
-	return s.repo.GetAllOrders(ctx)
 }

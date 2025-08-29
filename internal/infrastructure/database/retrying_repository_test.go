@@ -29,9 +29,14 @@ func (m *MockOrderRepository) GetOrder(ctx context.Context, id string) (entities
 	return args.Get(0).(entities.Order), args.Error(1)
 }
 
-func (m *MockOrderRepository) GetAllOrders(ctx context.Context) ([]entities.Order, error) {
-	args := m.Called(ctx)
+func (m *MockOrderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]entities.Order, error) {
+	args := m.Called(ctx, limit, offset)
 	return args.Get(0).([]entities.Order), args.Error(1)
+}
+
+func (m *MockOrderRepository) GetOrdersCount(ctx context.Context) (int, error) {
+	args := m.Called(ctx)
+	return args.Int(0), args.Error(1)
 }
 
 func (m *MockOrderRepository) DeleteOrder(ctx context.Context, id string) error {

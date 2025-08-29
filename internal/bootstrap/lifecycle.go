@@ -12,7 +12,7 @@ func (a *App) Run() {
 	a.Logger.Info("server starting", zap.String("addr", a.Server.Addr))
 	a.KafkaConsumer.Start()
 
-	go a.restoreCacheFromDB(context.Background())
+	go a.restoreCacheFromDB()
 
 	go func() {
 		if err := a.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -61,17 +61,12 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.Logger.Info("shutdown completed")
 }
 
-// восстановление кеша из БД
-func (a *App) restoreCacheFromDB(ctx context.Context) {
-	orders, err := a.Service.GetAllFromDB(ctx)
-	if err != nil {
+func (a *App) restoreCacheFromDB() {
+	ctx := context.Background()
+	
+	if err := a.CacheRestorer.Restore(ctx); err != nil {
 		a.Logger.Error("failed to restore cache from DB", zap.Error(err))
-		return
+	} else {
+		a.Logger.Info("cache restored successfully from DB")
 	}
-
-	for _, o := range orders {
-		a.Cache.Set(o.OrderUID, o)
-	}
-
-	a.Logger.Info("cache restored from DB", zap.Int("count", len(orders)))
 }

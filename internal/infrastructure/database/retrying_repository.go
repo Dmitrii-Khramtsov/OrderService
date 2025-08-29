@@ -19,11 +19,11 @@ type RetryingOrderRepository struct {
 }
 
 type RetryConfig struct {
-	MaxElapsedTime     time.Duration
-	InitialInterval    time.Duration
+	MaxElapsedTime      time.Duration
+	InitialInterval     time.Duration
 	RandomizationFactor float64
-	Multiplier         float64
-	MaxInterval        time.Duration
+	Multiplier          float64
+	MaxInterval         time.Duration
 }
 
 func NewRetryingOrderRepository(repo OrderRepository, logger logger.LoggerInterface, config *RetryConfig) *RetryingOrderRepository {
@@ -84,12 +84,12 @@ func (r *RetryingOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	return order, err
 }
 
-func (r *RetryingOrderRepository) GetAllOrders(ctx context.Context) ([]entities.Order, error) {
+func (r *RetryingOrderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]entities.Order, error) {
 	var orders []entities.Order
 	var err error
 
 	operation := func() error {
-		orders, err = r.repo.GetAllOrders(ctx)
+		orders, err = r.repo.GetAllOrders(ctx, limit, offset)
 		if err != nil {
 			r.logger.Warn("failed to get all orders, retrying", zap.Error(err))
 		}
@@ -98,6 +98,22 @@ func (r *RetryingOrderRepository) GetAllOrders(ctx context.Context) ([]entities.
 
 	err = r.withRetry(ctx, operation)
 	return orders, err
+}
+
+func (r *RetryingOrderRepository) GetOrdersCount(ctx context.Context) (int, error) {
+	var count int
+	var err error
+
+	operation := func() error {
+		count, err = r.repo.GetOrdersCount(ctx)
+		if err != nil {
+			r.logger.Warn("failed to get orders count, retrying", zap.Error(err))
+		}
+		return err
+	}
+
+	err = r.withRetry(ctx, operation)
+	return count, err
 }
 
 func (r *RetryingOrderRepository) DeleteOrder(ctx context.Context, id string) error {

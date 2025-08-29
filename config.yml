@@ -2,6 +2,9 @@
 cache:
   capacity: 10000
   get_all_limit: 1000
+  restoration:
+    timeout: 5m
+    batch_size: 1000
 
 database:
   max_open_conns: 25

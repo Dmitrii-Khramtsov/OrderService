@@ -1,5 +1,4 @@
 // github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory/database.go
-// github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory/database.go
 package factory
 
 import (

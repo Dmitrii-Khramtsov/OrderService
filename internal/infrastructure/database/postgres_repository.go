@@ -273,9 +273,9 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	return order, nil
 }
 
-func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context) ([]entities.Order, error) {
-	query := "SELECT order_uid FROM orders"
-	rows, err := r.db.QueryContext(ctx, query)
+func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]entities.Order, error) {
+	query := "SELECT order_uid FROM orders ORDER BY order_uid LIMIT $1 OFFSET $2"
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		r.logger.Error("failed to get all orders", zap.Error(err))
 		return nil, fmt.Errorf("%w: %v", ErrQueryFailed, err)
@@ -300,6 +300,17 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context) ([]entities.
 	}
 
 	return orders, nil
+}
+
+func (r *PostgresOrderRepository) GetOrdersCount(ctx context.Context) (int, error) {
+	query := "SELECT COUNT(*) FROM orders"
+	var count int
+	err := r.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		r.logger.Error("failed to get orders count", zap.Error(err))
+		return 0, fmt.Errorf("%w: %v", ErrQueryFailed, err)
+	}
+	return count, nil
 }
 
 func (r *PostgresOrderRepository) DeleteOrder(ctx context.Context, id string) error {

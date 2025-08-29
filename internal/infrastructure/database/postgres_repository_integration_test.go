@@ -190,7 +190,7 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 		assert.Len(t, retrieved.Items, 1)
 		assert.Equal(t, order.Items[0].ChrtID, retrieved.Items[0].ChrtID)
 		
-		orders, err := repo.GetAllOrders(ctx)
+		orders, err := repo.GetAllOrders(ctx, 100, 0)
 		assert.NoError(t, err)
 		assert.Len(t, orders, 1)
 		assert.Equal(t, order.OrderUID, orders[0].OrderUID)
@@ -395,7 +395,7 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 		err = repo.ClearOrders(ctx)
 		assert.NoError(t, err)
 		
-		orders, err := repo.GetAllOrders(ctx)
+		orders, err := repo.GetAllOrders(ctx, 100, 0)
 		assert.NoError(t, err)
 		assert.Empty(t, orders)
 	})
