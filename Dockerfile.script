@@ -2,13 +2,13 @@
 FROM golang:1.24.1-alpine AS builder
 WORKDIR /app
 
-# Копируем весь проект
+# Copying the entire project
 COPY . .
 
-# Скачиваем зависимости
+# Downloading dependencies
 RUN go mod download
 
-# Собираем бинарник
+# Building a binary
 WORKDIR /app/scripts
 RUN go build -o /app/script
 
