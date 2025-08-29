@@ -4,7 +4,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 	"github.com/jmoiron/sqlx"
@@ -16,12 +15,7 @@ type PostgresOrderRepository struct {
 	logger logger.LoggerInterface
 }
 
-func NewPostgresOrderRepository(dsn string, l logger.LoggerInterface) (OrderRepository, error) {
-	db, err := sqlx.Connect("postgres", dsn)
-	if err != nil {
-		l.Error("failed to connect to database", zap.Error(err))
-		return nil, ErrDatabaseConnectionFailed
-	}
+func NewPostgresOrderRepository(db *sqlx.DB, l logger.LoggerInterface) (OrderRepository, error) {
 	return &PostgresOrderRepository{
 		db:     db,
 		logger: l,

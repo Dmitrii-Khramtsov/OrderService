@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// контекст не участвует, оставлен для консистентности
 func RunMigrations(ctx context.Context, db *sql.DB, migrationsPath string, l logger.LoggerInterface) error {
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {

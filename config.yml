@@ -1,6 +1,26 @@
+# github.com/Dmitrii-Khramtsov/orderservice/config.yml
 cache:
   capacity: 10000
   get_all_limit: 1000
 
+database:
+  max_open_conns: 25
+  max_idle_conns: 25
+  conn_max_lifetime: 1h
+
+kafka:
+  topic: "orders"
+  group_id: "orderservice"
+
+server:
+  port: "8081"
+
 migrations:
-  migrations_path: ./migrations
+  migrations_path: "./internal/infrastructure/migrations"
+
+retry:
+  max_elapsed_time: 30s
+  initial_interval: 500ms
+  randomization_factor: 0.5
+  multiplier: 1.5
+  max_interval: 10s

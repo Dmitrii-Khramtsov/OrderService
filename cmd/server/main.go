@@ -20,7 +20,7 @@ import (
 		log.Printf("Warning: failed to load .env file: %v", err)
 	}
 
-	app, err := app.NewApp()
+	app, err := bootstrap.NewApp()
 	if err != nil {
 		log.Fatal(err)
 	}

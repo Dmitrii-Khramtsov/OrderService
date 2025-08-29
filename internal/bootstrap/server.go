@@ -1,16 +1,16 @@
 // github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/server.go
-package app
+package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/application"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
@@ -19,10 +19,19 @@ import (
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/migrations"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/handler"
+	"github.com/jmoiron/sqlx"
 )
 
 type Shutdownable interface {
 	Shutdown(ctx context.Context) error
+}
+
+type DBWrapper struct {
+	DB *sqlx.DB
+}
+
+func (dw *DBWrapper) Shutdown(ctx context.Context) error {
+	return dw.DB.Close()
 }
 
 type App struct {
@@ -33,25 +42,26 @@ type App struct {
 	Handler       *handler.OrderHandler
 	Repo          repo.OrderRepository
 	KafkaConsumer kafka.ConsumerInterface
+	DB            Shutdownable
 }
 
 func NewApp() (*App, error) {
-	cfg, err := config.LoadConfig("config.yaml")
+	cfg, err := config.LoadConfig("config.yml")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	l, err := newLogger()
+	l, err := newLogger(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	c := newCache(l, cfg.Cache.Capacity)
-	db, err := newDatabaseConnection(l)
+
+	db, err := newDatabaseConnection(l, cfg)
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
 
 	ctx := context.Background()
 	if err := runMigrations(ctx, db, cfg.Migrations.MigrationsPath, l); err != nil {
@@ -59,8 +69,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	dsn := os.Getenv("POSTGRES_DSN")
-	rp, err := newPostgresOrderRepository(dsn, l)
+	rp, err := newPostgresOrderRepository(db, l)
 	if err != nil {
 		return nil, err
 	}
@@ -68,19 +77,10 @@ func NewApp() (*App, error) {
 	svc := newOrderService(c, l, rp, cfg.Cache.GetAllLimit)
 	h := newOrderHandler(svc, l)
 
-	brokers := os.Getenv("KAFKA_BROKERS")
-	topic := os.Getenv("KAFKA_TOPIC")
-	groupID := os.Getenv("KAFKA_GROUP_ID")
+	kc := newKafkaConsumer(cfg.Kafka.Brokers, cfg.Kafka.Topic, cfg.Kafka.GroupID, svc, l)
 
-	kc := newKafkaConsumer(brokers, topic, groupID, svc, l)
 	r := newRouter(h)
-
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8081"
-	}
-
-	srv := newHTTPServer(port, r)
+	srv := newHTTPServer(cfg.Server.Port, r)
 
 	return &App{
 		Server:        srv,
@@ -90,12 +90,13 @@ func NewApp() (*App, error) {
 		Handler:       h,
 		Repo:          rp,
 		KafkaConsumer: kc,
+		DB:            &DBWrapper{DB: db},
 	}, nil
 }
 
-func newLogger() (logger.LoggerInterface, error) {
+func newLogger(cfg *config.Config) (logger.LoggerInterface, error) {
 	mode := logger.DEV
-	if os.Getenv("LOG_MODE") == "production" {
+	if envLogMode := os.Getenv("LOG_MODE"); envLogMode == "production" {
 		mode = logger.PROD
 	}
 	return logger.NewLogger(mode)
@@ -105,27 +106,40 @@ func newCache(l logger.LoggerInterface, capacity int) cache.Cache {
 	return cache.NewOrderLRUCache(l, capacity)
 }
 
-func newDatabaseConnection(l logger.LoggerInterface) (*sql.DB, error) {
-	dsn := os.Getenv("POSTGRES_DSN")
-	db, err := sql.Open("postgres", dsn)
+func newDatabaseConnection(l logger.LoggerInterface, cfg *config.Config) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("postgres", cfg.Database.DSN)
 	if err != nil {
 		l.Error("failed to connect to db", zap.Error(err))
 		return nil, repo.ErrDatabaseConnectionFailed
 	}
+
+	db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.Database.ConnMaxLifetime)
+
 	return db, nil
 }
 
-func runMigrations(ctx context.Context, db *sql.DB, migrationsPath string,  l logger.LoggerInterface) error {
-	if err := migrations.RunMigrations(ctx, db, migrationsPath, l); err != nil {
-		l.Error("failed to run migrations", zap.Error(err))
+func runMigrations(ctx context.Context, db *sqlx.DB, migrationsPath string, l logger.LoggerInterface) error {
+	operation := func() error {
+		return migrations.RunMigrations(ctx, db.DB, migrationsPath, l)
+	}
+
+	retryPolicy := backoff.NewExponentialBackOff()
+	retryPolicy.MaxElapsedTime = 30 * time.Second
+
+	err := backoff.Retry(operation, retryPolicy)
+	if err != nil {
+		l.Error("failed to run migrations after retries", zap.Error(err))
 		return err
 	}
+
 	l.Info("migrations completed successfully")
 	return nil
 }
 
-func newPostgresOrderRepository(dsn string, l logger.LoggerInterface) (repo.OrderRepository, error) {
-	return repo.NewPostgresOrderRepository(dsn, l)
+func newPostgresOrderRepository(db *sqlx.DB, l logger.LoggerInterface) (repo.OrderRepository, error) {
+	return repo.NewPostgresOrderRepository(db, l)
 }
 
 func newOrderService(c cache.Cache, l logger.LoggerInterface, rp repo.OrderRepository, limit int) application.OrderServiceInterface {
@@ -136,9 +150,8 @@ func newOrderHandler(svc application.OrderServiceInterface, l logger.LoggerInter
 	return handler.NewOrderHandler(svc, l)
 }
 
-func newKafkaConsumer(brokers string, topic, groupID string, svc application.OrderServiceInterface, l logger.LoggerInterface) kafka.ConsumerInterface {
-	kc := kafka.NewConsumer([]string{brokers}, topic, groupID, svc, l)
-	kc.Start()
+func newKafkaConsumer(brokers []string, topic, groupID string, svc application.OrderServiceInterface, l logger.LoggerInterface) kafka.ConsumerInterface {
+	kc := kafka.NewConsumer(brokers, topic, groupID, svc, l)
 	return kc
 }
 
@@ -163,6 +176,7 @@ func newHTTPServer(port string, r *chi.Mux) *http.Server {
 
 func (a *App) Run() {
 	a.Logger.Info("server starting", zap.String("addr", a.Server.Addr))
+	a.KafkaConsumer.Start()
 	go a.RestoreCacheFromDB(context.Background())
 	go func() {
 		if err := a.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -172,29 +186,43 @@ func (a *App) Run() {
 }
 
 func (a *App) RestoreCacheFromDB(ctx context.Context) {
-	orders, err := a.Service.GetAllFromDB(ctx)
+	operation := func() error {
+		orders, err := a.Service.GetAllFromDB(ctx)
+		if err != nil {
+			a.Logger.Error("failed to restore cache from DB", zap.Error(err))
+			return err
+		}
+		for _, o := range orders {
+			a.Cache.Set(o.OrderUID, o)
+		}
+		a.Logger.Info("cache restored from DB", zap.Int("count", len(orders)))
+		return nil
+	}
+
+	retryPolicy := backoff.NewExponentialBackOff()
+	retryPolicy.MaxElapsedTime = 30 * time.Second
+
+	err := backoff.Retry(operation, retryPolicy)
 	if err != nil {
-		a.Logger.Error("failed to restore cache from DB", zap.Error(err))
-		return
+		a.Logger.Error("failed to restore cache from DB after retries", zap.Error(err))
 	}
-	for _, o := range orders {
-		a.Cache.Set(o.OrderUID, o)
-	}
-	a.Logger.Info("cache restored from DB", zap.Int("count", len(orders)))
 }
 
 func (a *App) Shutdown(ctx context.Context) {
 	a.Logger.Info("shutdown initiated")
+
 	if err := a.KafkaConsumer.Shutdown(ctx); err != nil {
 		a.Logger.Error("failed to shutdown kafka consumer", zap.Error(err))
 	} else {
 		a.Logger.Info("kafka consumer stopped gracefully")
 	}
+
 	if err := a.Server.Shutdown(ctx); err != nil {
 		a.Logger.Error("server forced to shutdown", zap.Error(err))
 	} else {
 		a.Logger.Info("server stopped gracefully")
 	}
+
 	resources := []struct {
 		name string
 		res  Shutdownable
@@ -202,6 +230,7 @@ func (a *App) Shutdown(ctx context.Context) {
 		{"cache", a.Cache},
 		{"logger", a.Logger},
 		{"repository", a.Repo},
+		{"database", a.DB},
 	}
 	for _, resource := range resources {
 		if err := resource.res.Shutdown(ctx); err != nil {
