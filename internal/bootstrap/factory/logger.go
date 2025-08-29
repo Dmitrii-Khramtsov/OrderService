@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory/logger.go
 package factory
 
 import (

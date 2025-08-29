@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory/server.go
 package factory
 
 import (

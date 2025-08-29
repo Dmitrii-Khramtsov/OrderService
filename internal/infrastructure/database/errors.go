@@ -15,4 +15,5 @@ var (
 	ErrOrderSaveFailed          = errors.New("failed to save order")
 	ErrOrderDeleteFailed        = errors.New("failed to delete order")
 	ErrOrderClearFailed         = errors.New("failed to clear orders")
+	ErrTransactionFailed        = errors.New("transaction failed")
 )

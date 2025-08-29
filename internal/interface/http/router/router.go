@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/handler/router.go
 package router
 
 import (

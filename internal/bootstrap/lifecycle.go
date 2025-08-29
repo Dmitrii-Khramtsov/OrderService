@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/lifecycle.go
 package bootstrap
 
 import (

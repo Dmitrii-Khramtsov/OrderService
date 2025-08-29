@@ -11,6 +11,8 @@ database:
 kafka:
   topic: "orders"
   group_id: "orderservice"
+  dlq_topic: "orders-dlq"
+  max_retries: 5
 
 server:
   port: "8081"

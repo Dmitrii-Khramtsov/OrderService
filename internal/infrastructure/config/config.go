@@ -20,9 +20,11 @@ type DatabaseConfig struct {
 }
 
 type KafkaConfig struct {
-	Brokers   []string `mapstructure:"brokers"`
-	Topic     string   `mapstructure:"topic"`
-	GroupID   string   `mapstructure:"group_id"`
+	Brokers    []string `mapstructure:"brokers"`
+	Topic      string   `mapstructure:"topic"`
+	GroupID    string   `mapstructure:"group_id"`
+	DLQTopic   string   `mapstructure:"dlq_topic"`
+	MaxRetries int      `mapstructure:"max_retries"`
 }
 
 type ServerConfig struct {
@@ -34,20 +36,20 @@ type MigrationsConfig struct {
 }
 
 type RetryConfig struct {
-	MaxElapsedTime     time.Duration `mapstructure:"max_elapsed_time"`
-	InitialInterval    time.Duration `mapstructure:"initial_interval"`
-	RandomizationFactor float64      `mapstructure:"randomization_factor"`
-	Multiplier         float64      `mapstructure:"multiplier"`
-	MaxInterval        time.Duration `mapstructure:"max_interval"`
+	MaxElapsedTime      time.Duration `mapstructure:"max_elapsed_time"`
+	InitialInterval     time.Duration `mapstructure:"initial_interval"`
+	RandomizationFactor float64       `mapstructure:"randomization_factor"`
+	Multiplier          float64       `mapstructure:"multiplier"`
+	MaxInterval         time.Duration `mapstructure:"max_interval"`
 }
 
 type Config struct {
-	Cache       CacheConfig      `mapstructure:"cache"`
-	Database    DatabaseConfig   `mapstructure:"database"`
-	Kafka       KafkaConfig      `mapstructure:"kafka"`
-	Server      ServerConfig     `mapstructure:"server"`
-	Migrations  MigrationsConfig `mapstructure:"migrations"`
-	Retry       RetryConfig      `mapstructure:"retry"`
+	Cache      CacheConfig      `mapstructure:"cache"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Kafka      KafkaConfig      `mapstructure:"kafka"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Migrations MigrationsConfig `mapstructure:"migrations"`
+	Retry      RetryConfig      `mapstructure:"retry"`
 }
 
 func LoadConfig(path string) (*Config, error) {

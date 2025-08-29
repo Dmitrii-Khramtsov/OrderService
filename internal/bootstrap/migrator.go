@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/migrator.go
 package bootstrap
 
 import (

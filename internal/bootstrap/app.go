@@ -1,3 +1,4 @@
+// github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/app.go
 package bootstrap
 
 import (
@@ -51,13 +52,16 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 	c := factory.NewCache(l, cfg.Cache.Capacity)
-	db := factory.NewDatabase(cfg, l)
+	db, err := factory.NewDatabase(cfg, l)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := RunMigrations(context.Background(), db, cfg.Migrations.MigrationsPath, l, cfg); err != nil {
 		return nil, err
 	}
 
-	rp, err := factory.NewOrderRepository(db, l)
+	rp, err := factory.NewOrderRepository(cfg, db, l)
 	if err != nil {
 		return nil, err
 	}
