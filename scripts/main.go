@@ -95,12 +95,10 @@ func sendOrderToKafka(writer *kafka.Writer, order entities.Order) error {
 }
 
 func main() {
-	// Загружаем .env
 	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("Warning: failed to load .env file: %v", err)
 	}
 
-	// Получаем адрес Kafka-брокера
 	brokerAddress := os.Getenv("KAFKA_BROKERS")
 	if brokerAddress == "" {
 		log.Fatal("Kafka broker address is not set in .env")
@@ -124,7 +122,6 @@ func main() {
 	log.Printf("Using Kafka broker: %s", brokerAddress)
 	log.Printf("Using Kafka topic: %s", topic)
 
-	// Создаём топик, если его нет
 	conn, err := kafka.Dial("tcp", brokerAddress)
 	if err != nil {
 		log.Fatalf("Failed to connect to Kafka: %v", err)
@@ -148,7 +145,6 @@ func main() {
 		ReplicationFactor: 1,
 	})
 
-	// Создаём Kafka Writer
 	writer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers:  []string{brokerAddress},
 		Topic:    topic,
@@ -156,7 +152,6 @@ func main() {
 	})
 	defer writer.Close()
 
-	// Отправляем сообщения
 	for i := 0; i < numMessages; i++ {
 		order := generateRandomOrder()
 		if err := sendOrderToKafka(writer, order); err != nil {

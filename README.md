@@ -163,9 +163,13 @@ DELAY_MS=500
 
 ### 3. Запуск через Docker Compose (рекомендуемый способ)
 
-*Этот команда запустит весь стек: Zookeeper, Kafka, PostgreSQL и само приложение.*
+*Эта команда запустит весь стек: Zookeeper, Kafka, PostgreSQL и само приложение.*
 ```bash
+# стандартный запуск
 make docker-up
+
+# или полная пересборка и запуск с очисткой
+docker compose down --remove-orphans && docker compose up -d --build
 ```
 
 *Чтобы также запустить скрипт для генерации тестовых данных в Kafka:*
@@ -182,7 +186,11 @@ make script-up
 
 ### 5. Остановка
 ```bash
+# стандартная остановка
 make docker-down
+
+# или полная остановка с очисткой
+docker compose down --remove-orphans
 ```
 
 ## API Endpoints
@@ -203,16 +211,17 @@ curl http://localhost:8081/orders/b563feb7b2b84b6test
 
 *Проект использует Makefile для автоматизации частых задач:*
 ```bash
-make build           # Собрать бинарный файл
-make run             # Запустить приложение локально (требует запущенных БД и Kafka)
-make lint            # Запустить линтер (golangci-lint)
-make test-unit       # Запустить unit-тесты
-make test-integration # Запустить integration-тесты (требует Docker)
-make test-all        # Запустить все тесты
-make test-coverage   # Запустить тесты с генерацией отчета о покрытии
-make docker-up       # Запустить весь стек через Docker Compose
-make docker-logs     # Показать логи Docker Compose
-make docker-down     # Остановить стек Docker Compose
+make build           # собрать бинарный файл
+make run             # запустить приложение локально (требует запущенных БД и Kafka)
+make lint            # запустить линтер (golangci-lint)
+make test-unit       # запустить unit-тесты
+make test-integration # запустить integration-тесты (требует Docker)
+make test-all        # запустить все тесты
+make test-coverage   # запустить тесты с генерацией отчета о покрытии
+make docker-up       # запустить весь стек через Docker Compose
+make docker-logs     # показать логи Docker Compose
+make docker-down     # остановить стек Docker Compose
+make docker-restart
 ```
 
 ### Локальная разработка без Docker
@@ -236,7 +245,7 @@ make run
 
 ```yaml
 server:
-  port: "8081" # Порт HTTP сервера
+  port: "8081" # порт HTTP сервера
 
 database:
   dsn: "postgres://orders:orders@postgres:5432/orders?sslmode=disable" # DSN для подключения к PostgreSQL
@@ -248,12 +257,12 @@ kafka:
   brokers: ["kafka:9092"]
   topic: "orders"
   group_id: "orderservice"
-  dlq_topic: "orders-dlq" # Топик для мертвых писем
-  max_retries: 5 # Макс. количество попыток обработки сообщения
+  dlq_topic: "orders-dlq" # топик для мертвых писем
+  max_retries: 5 # макс. количество попыток обработки сообщения
 
 cache:
-  capacity: 10000 # Максимальная вместимость LRU кэша
-  get_all_limit: 1000 # Лимит для получения всех заказов
+  capacity: 10000 # максимальная вместимость LRU кэша
+  get_all_limit: 1000 # лимит для получения всех заказов
 ```
 
 Параметры из `config.yml` могут быть переопределены переменными окружения (например, `POSTGRES_DSN`, `KAFKA_BROKERS`).

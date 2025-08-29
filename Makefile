@@ -26,6 +26,11 @@ docker-logs:
 	@echo "Showing Docker Compose logs..."
 	@docker compose logs -f
 
+docker-restart:
+	@echo "Restarting services with clean rebuild..."
+	@docker compose down --remove-orphans
+	@docker compose up -d --build
+
 script-up:
 	@echo "Running script via Docker Compose..."
 	@docker compose up script
