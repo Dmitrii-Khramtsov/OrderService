@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// Моки
 type mockCache struct{ mock.Mock }
 func (m *mockCache) Get(key string) (entities.Order, bool) {
 	args := m.Called(key)
@@ -52,7 +51,6 @@ func (m *mockLogger) Error(msg string, fields ...interface{}) { m.Called(msg, fi
 func (m *mockLogger) Sync() error { return m.Called().Error(0) }
 func (m *mockLogger) Shutdown(ctx context.Context) error { return m.Called(ctx).Error(0) }
 
-// Пример валидного заказа
 func sampleOrder() entities.Order {
 	return entities.Order{
 		OrderUID:    "123",
@@ -64,8 +62,6 @@ func sampleOrder() entities.Order {
 		Payment:  entities.Payment{Amount: 100},
 	}
 }
-
-// --- Тесты ---
 
 func TestSaveOrder_NewOrder(t *testing.T) {
 	cache := new(mockCache)
