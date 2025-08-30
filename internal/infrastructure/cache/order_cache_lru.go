@@ -132,8 +132,8 @@ func (c *orderLRUCache) reset() {
 	if cacheCapacity <= 0 {
 		cacheCapacity = 0
 	}
-	c.cache = make(map[string]*list.Element, cacheCapacity)
 	c.ll.Init()
+	c.cache = make(map[string]*list.Element, cacheCapacity)
 }
 
 func (c *orderLRUCache) Clear() {
