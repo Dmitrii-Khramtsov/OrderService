@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 )
 
@@ -29,7 +30,7 @@ func NewPostgresOrderRepository(db *sqlx.DB, logger logger.LoggerInterface) (*Po
 func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.Order) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrTransactionFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrTransactionFailed, err)
 	}
 	defer tx.Rollback()
 
@@ -76,7 +77,7 @@ func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, or
 	_, err := tx.NamedExecContext(ctx, query, order)
 	if err != nil {
 		r.logger.Error("failed to save order", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -112,7 +113,7 @@ func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx,
 	_, err := tx.NamedExecContext(ctx, query, deliveryMap)
 	if err != nil {
 		r.logger.Error("failed to save delivery", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -156,7 +157,7 @@ func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, 
 	_, err := tx.NamedExecContext(ctx, query, paymentMap)
 	if err != nil {
 		r.logger.Error("failed to save payment", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -168,7 +169,7 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 	_, err := tx.ExecContext(ctx, deleteQuery, order.OrderUID)
 	if err != nil {
 		r.logger.Error("failed to delete existing items", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
 	}
 
 	// Insert new items
@@ -201,7 +202,7 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 		_, err := tx.NamedExecContext(ctx, query, itemMap)
 		if err != nil {
 			r.logger.Error("failed to save item", zap.Error(err), zap.String("order_uid", order.OrderUID))
-			return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
+			return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
 		}
 	}
 
@@ -227,10 +228,10 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	rows, err := r.db.QueryxContext(ctx, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entities.Order{}, ErrOrderNotFound
+			return entities.Order{}, repo.ErrOrderNotFound
 		}
 		r.logger.Error("failed to get order", zap.Error(err), zap.String("order_uid", id))
-		return entities.Order{}, fmt.Errorf("%w: %v", ErrQueryFailed, err)
+		return entities.Order{}, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
 	}
 	defer rows.Close()
 
@@ -257,7 +258,7 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 
 		if err != nil {
 			r.logger.Error("failed to scan order", zap.Error(err), zap.String("order_uid", id))
-			return entities.Order{}, fmt.Errorf("%w: %v", ErrQueryFailed, err)
+			return entities.Order{}, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
 		}
 
 		order.Delivery = delivery
@@ -266,7 +267,7 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	}
 
 	if order.OrderUID == "" {
-		return entities.Order{}, ErrOrderNotFound
+		return entities.Order{}, repo.ErrOrderNotFound
 	}
 
 	order.Items = items
@@ -278,7 +279,7 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
 		r.logger.Error("failed to get all orders", zap.Error(err))
-		return nil, fmt.Errorf("%w: %v", ErrQueryFailed, err)
+		return nil, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
 	}
 	defer rows.Close()
 
@@ -308,7 +309,7 @@ func (r *PostgresOrderRepository) GetOrdersCount(ctx context.Context) (int, erro
 	err := r.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
 		r.logger.Error("failed to get orders count", zap.Error(err))
-		return 0, fmt.Errorf("%w: %v", ErrQueryFailed, err)
+		return 0, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
 	}
 	return count, nil
 }
@@ -318,16 +319,16 @@ func (r *PostgresOrderRepository) DeleteOrder(ctx context.Context, id string) er
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		r.logger.Error("failed to delete order", zap.Error(err), zap.String("order_uid", id))
-		return fmt.Errorf("%w: %v", ErrOrderDeleteFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderDeleteFailed, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrOrderDeleteFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderDeleteFailed, err)
 	}
 
 	if rowsAffected == 0 {
-		return ErrOrderNotFound
+		return repo.ErrOrderNotFound
 	}
 
 	return nil
@@ -338,7 +339,7 @@ func (r *PostgresOrderRepository) ClearOrders(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, query)
 	if err != nil {
 		r.logger.Error("failed to clear orders", zap.Error(err))
-		return fmt.Errorf("%w: %v", ErrOrderClearFailed, err)
+		return fmt.Errorf("%w: %v", repo.ErrOrderClearFailed, err)
 	}
 	return nil
 }

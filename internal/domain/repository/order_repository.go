@@ -1,4 +1,4 @@
-// github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database/repository.go
+// github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repositories/repository.go
 package repository
 
 import (

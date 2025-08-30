@@ -9,11 +9,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 )
 
 type RetryingOrderRepository struct {
-	repo   OrderRepository
+	repo   repo.OrderRepository
 	logger logger.LoggerInterface
 	config *RetryConfig
 }
@@ -26,7 +27,7 @@ type RetryConfig struct {
 	MaxInterval         time.Duration
 }
 
-func NewRetryingOrderRepository(repo OrderRepository, logger logger.LoggerInterface, config *RetryConfig) *RetryingOrderRepository {
+func NewRetryingOrderRepository(repo repo.OrderRepository, logger logger.LoggerInterface, config *RetryConfig) *RetryingOrderRepository {
 	return &RetryingOrderRepository{
 		repo:   repo,
 		logger: logger,

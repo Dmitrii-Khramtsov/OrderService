@@ -14,6 +14,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 )
 
@@ -200,7 +201,7 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 		ctx := context.Background()
 		
 		_, err := repo.GetOrder(ctx, "non-existent")
-		assert.ErrorIs(t, err, ErrOrderNotFound)
+		assert.ErrorIs(t, err, repository.ErrOrderNotFound)
 	})
 	
 	t.Run("Update Order", func(t *testing.T) {
@@ -333,7 +334,7 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 		assert.NoError(t, err)
 		
 		_, err = repo.GetOrder(ctx, "test-order-3")
-		assert.ErrorIs(t, err, ErrOrderNotFound)
+		assert.ErrorIs(t, err, repository.ErrOrderNotFound)
 	})
 	
 	t.Run("Clear Orders", func(t *testing.T) {

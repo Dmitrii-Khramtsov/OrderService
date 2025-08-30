@@ -11,7 +11,7 @@ import (
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
+	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/kafka"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/handler"

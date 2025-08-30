@@ -8,8 +8,8 @@ import (
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
+	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
-	repository "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 	"go.uber.org/zap"
 )
@@ -25,11 +25,11 @@ type OrderServiceInterface interface {
 type orderService struct {
 	cache  cache.Cache
 	logger logger.LoggerInterface
-	repo   repository.OrderRepository
+	repo   repo.OrderRepository
 	getAllLimit int
 }
 
-func NewOrderService(c cache.Cache, l logger.LoggerInterface, r repository.OrderRepository, limit int) OrderServiceInterface {
+func NewOrderService(c cache.Cache, l logger.LoggerInterface, r repo.OrderRepository, limit int) OrderServiceInterface {
 	return &orderService{
 		cache:  c,
 		logger: l,

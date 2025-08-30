@@ -7,8 +7,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
+	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
+	infrarepo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 )
 
@@ -27,12 +28,12 @@ func NewDatabase(cfg *config.Config, l logger.LoggerInterface) (*sqlx.DB, error)
 }
 
 func NewOrderRepository(cfg *config.Config, db *sqlx.DB, l logger.LoggerInterface) (repo.OrderRepository, error) {
-	baseRepo, err := repo.NewPostgresOrderRepository(db, l)
+	baseRepo, err := infrarepo.NewPostgresOrderRepository(db, l)
 	if err != nil {
 		return nil, err
 	}
 
-	retryConfig := &repo.RetryConfig{
+	retryConfig := &infrarepo.RetryConfig{
 		MaxElapsedTime:      cfg.Retry.MaxElapsedTime,
 		InitialInterval:     cfg.Retry.InitialInterval,
 		RandomizationFactor: cfg.Retry.RandomizationFactor,
@@ -40,5 +41,5 @@ func NewOrderRepository(cfg *config.Config, db *sqlx.DB, l logger.LoggerInterfac
 		MaxInterval:         cfg.Retry.MaxInterval,
 	}
 
-	return repo.NewRetryingOrderRepository(baseRepo, l, retryConfig), nil
+	return infrarepo.NewRetryingOrderRepository(baseRepo, l, retryConfig), nil
 }

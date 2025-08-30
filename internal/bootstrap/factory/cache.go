@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
+	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 )
 

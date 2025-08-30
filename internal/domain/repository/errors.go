@@ -1,4 +1,4 @@
-// github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database/errors.go
+// github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repositories/errors.go
 package repository
 
 import "errors"
