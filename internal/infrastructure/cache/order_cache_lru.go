@@ -63,6 +63,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 	c.cache[orderID] = newElem
 }
 
+// не стал использовать RLock и оборачивать отдельно Lock - c.ll.MoveToFront(elem)
 func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
 	c.Lock()
 	defer c.Unlock()
