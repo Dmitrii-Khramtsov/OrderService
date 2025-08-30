@@ -8,19 +8,17 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
 
 type PostgresOrderRepository struct {
 	db     *sqlx.DB
-	logger logger.LoggerInterface
+	logger domainrepo.Logger
 }
 
-func NewPostgresOrderRepository(db *sqlx.DB, logger logger.LoggerInterface) (*PostgresOrderRepository, error) {
+func NewPostgresOrderRepository(db *sqlx.DB, logger domainrepo.Logger) (*PostgresOrderRepository, error) {
 	if db == nil {
 		return nil, errors.New("db is nil")
 	}
@@ -30,7 +28,7 @@ func NewPostgresOrderRepository(db *sqlx.DB, logger logger.LoggerInterface) (*Po
 func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.Order) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: %v", repo.ErrTransactionFailed, err)
+		return fmt.Errorf("%w: %v", domainrepo.ErrTransactionFailed, err)
 	}
 	defer tx.Rollback()
 
@@ -55,29 +53,29 @@ func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.
 
 func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
-		INSERT INTO orders (
-			order_uid, track_number, entry, locale, internal_signature,
-			customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
-		) VALUES (
-			:order_uid, :track_number, :entry, :locale, :internal_signature,
-			:customer_id, :delivery_service, :shardkey, :sm_id, :date_created, :oof_shard
-		) ON CONFLICT (order_uid) DO UPDATE SET
-			track_number = EXCLUDED.track_number,
-			entry = EXCLUDED.entry,
-			locale = EXCLUDED.locale,
-			internal_signature = EXCLUDED.internal_signature,
-			customer_id = EXCLUDED.customer_id,
-			delivery_service = EXCLUDED.delivery_service,
-			shardkey = EXCLUDED.shardkey,
-			sm_id = EXCLUDED.sm_id,
-			date_created = EXCLUDED.date_created,
-			oof_shard = EXCLUDED.oof_shard
-	`
+        INSERT INTO orders (
+            order_uid, track_number, entry, locale, internal_signature,
+            customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
+        ) VALUES (
+            :order_uid, :track_number, :entry, :locale, :internal_signature,
+            :customer_id, :delivery_service, :shardkey, :sm_id, :date_created, :oof_shard
+        ) ON CONFLICT (order_uid) DO UPDATE SET
+            track_number = EXCLUDED.track_number,
+            entry = EXCLUDED.entry,
+            locale = EXCLUDED.locale,
+            internal_signature = EXCLUDED.internal_signature,
+            customer_id = EXCLUDED.customer_id,
+            delivery_service = EXCLUDED.delivery_service,
+            shardkey = EXCLUDED.shardkey,
+            sm_id = EXCLUDED.sm_id,
+            date_created = EXCLUDED.date_created,
+            oof_shard = EXCLUDED.oof_shard
+    `
 
 	_, err := tx.NamedExecContext(ctx, query, order)
 	if err != nil {
-		r.logger.Error("failed to save order", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
+		r.logger.Error("failed to save order", "error", err, "order_uid", order.OrderUID)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -85,19 +83,19 @@ func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, or
 
 func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
-		INSERT INTO delivery (
-			order_uid, name, phone, zip, city, address, region, email
-		) VALUES (
-			:order_uid, :name, :phone, :zip, :city, :address, :region, :email
-		) ON CONFLICT (order_uid) DO UPDATE SET
-			name = EXCLUDED.name,
-			phone = EXCLUDED.phone,
-			zip = EXCLUDED.zip,
-			city = EXCLUDED.city,
-			address = EXCLUDED.address,
-			region = EXCLUDED.region,
-			email = EXCLUDED.email
-	`
+        INSERT INTO delivery (
+            order_uid, name, phone, zip, city, address, region, email
+        ) VALUES (
+            :order_uid, :name, :phone, :zip, :city, :address, :region, :email
+        ) ON CONFLICT (order_uid) DO UPDATE SET
+            name = EXCLUDED.name,
+            phone = EXCLUDED.phone,
+            zip = EXCLUDED.zip,
+            city = EXCLUDED.city,
+            address = EXCLUDED.address,
+            region = EXCLUDED.region,
+            email = EXCLUDED.email
+    `
 
 	deliveryMap := map[string]interface{}{
 		"order_uid": order.OrderUID,
@@ -112,8 +110,8 @@ func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx,
 
 	_, err := tx.NamedExecContext(ctx, query, deliveryMap)
 	if err != nil {
-		r.logger.Error("failed to save delivery", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
+		r.logger.Error("failed to save delivery", "error", err, "order_uid", order.OrderUID)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -121,24 +119,24 @@ func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx,
 
 func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
-		INSERT INTO payment (
-			order_uid, transaction, request_id, currency, provider,
-			amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
-		) VALUES (
-			:order_uid, :transaction, :request_id, :currency, :provider,
-			:amount, :payment_dt, :bank, :delivery_cost, :goods_total, :custom_fee
-		) ON CONFLICT (order_uid) DO UPDATE SET
-			transaction = EXCLUDED.transaction,
-			request_id = EXCLUDED.request_id,
-			currency = EXCLUDED.currency,
-			provider = EXCLUDED.provider,
-			amount = EXCLUDED.amount,
-			payment_dt = EXCLUDED.payment_dt,
-			bank = EXCLUDED.bank,
-			delivery_cost = EXCLUDED.delivery_cost,
-			goods_total = EXCLUDED.goods_total,
-			custom_fee = EXCLUDED.custom_fee
-	`
+        INSERT INTO payment (
+            order_uid, transaction, request_id, currency, provider,
+            amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
+        ) VALUES (
+            :order_uid, :transaction, :request_id, :currency, :provider,
+            :amount, :payment_dt, :bank, :delivery_cost, :goods_total, :custom_fee
+        ) ON CONFLICT (order_uid) DO UPDATE SET
+            transaction = EXCLUDED.transaction,
+            request_id = EXCLUDED.request_id,
+            currency = EXCLUDED.currency,
+            provider = EXCLUDED.provider,
+            amount = EXCLUDED.amount,
+            payment_dt = EXCLUDED.payment_dt,
+            bank = EXCLUDED.bank,
+            delivery_cost = EXCLUDED.delivery_cost,
+            goods_total = EXCLUDED.goods_total,
+            custom_fee = EXCLUDED.custom_fee
+    `
 
 	paymentMap := map[string]interface{}{
 		"order_uid":     order.OrderUID,
@@ -156,8 +154,8 @@ func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, 
 
 	_, err := tx.NamedExecContext(ctx, query, paymentMap)
 	if err != nil {
-		r.logger.Error("failed to save payment", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
+		r.logger.Error("failed to save payment", "error", err, "order_uid", order.OrderUID)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -168,20 +166,20 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 	deleteQuery := "DELETE FROM items WHERE order_uid = $1"
 	_, err := tx.ExecContext(ctx, deleteQuery, order.OrderUID)
 	if err != nil {
-		r.logger.Error("failed to delete existing items", zap.Error(err), zap.String("order_uid", order.OrderUID))
-		return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
+		r.logger.Error("failed to delete existing items", "error", err, "order_uid", order.OrderUID)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
 	}
 
 	// Insert new items
 	query := `
-		INSERT INTO items (
-			chrt_id, order_uid, track_number, price, rid, name,
-			sale, size, total_price, nm_id, brand, status
-		) VALUES (
-			:chrt_id, :order_uid, :track_number, :price, :rid, :name,
-			:sale, :size, :total_price, :nm_id, :brand, :status
-		)
-	`
+        INSERT INTO items (
+            chrt_id, order_uid, track_number, price, rid, name,
+            sale, size, total_price, nm_id, brand, status
+        ) VALUES (
+            :chrt_id, :order_uid, :track_number, :price, :rid, :name,
+            :sale, :size, :total_price, :nm_id, :brand, :status
+        )
+    `
 
 	for _, item := range order.Items {
 		itemMap := map[string]interface{}{
@@ -201,8 +199,8 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 
 		_, err := tx.NamedExecContext(ctx, query, itemMap)
 		if err != nil {
-			r.logger.Error("failed to save item", zap.Error(err), zap.String("order_uid", order.OrderUID))
-			return fmt.Errorf("%w: %v", repo.ErrOrderSaveFailed, err)
+			r.logger.Error("failed to save item", "error", err, "order_uid", order.OrderUID)
+			return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
 		}
 	}
 
@@ -211,27 +209,27 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 
 func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (entities.Order, error) {
 	query := `
-		SELECT 
-			o.*,
-			d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
-			p.transaction, p.request_id, p.currency, p.provider, p.amount,
-			p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
-			i.chrt_id, i.track_number, i.price, i.rid, i.name as item_name,
-			i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
-		FROM orders o
-		LEFT JOIN delivery d ON o.order_uid = d.order_uid
-		LEFT JOIN payment p ON o.order_uid = p.order_uid
-		LEFT JOIN items i ON o.order_uid = i.order_uid
-		WHERE o.order_uid = $1
-	`
+        SELECT 
+            o.*,
+            d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+            p.transaction, p.request_id, p.currency, p.provider, p.amount,
+            p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
+            i.chrt_id, i.track_number, i.price, i.rid, i.name as item_name,
+            i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
+        FROM orders o
+        LEFT JOIN delivery d ON o.order_uid = d.order_uid
+        LEFT JOIN payment p ON o.order_uid = p.order_uid
+        LEFT JOIN items i ON o.order_uid = i.order_uid
+        WHERE o.order_uid = $1
+    `
 
 	rows, err := r.db.QueryxContext(ctx, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entities.Order{}, repo.ErrOrderNotFound
+			return entities.Order{}, domainrepo.ErrOrderNotFound
 		}
-		r.logger.Error("failed to get order", zap.Error(err), zap.String("order_uid", id))
-		return entities.Order{}, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
+		r.logger.Error("failed to get order", "error", err, "order_uid", id)
+		return entities.Order{}, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
 	}
 	defer rows.Close()
 
@@ -257,8 +255,8 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 		)
 
 		if err != nil {
-			r.logger.Error("failed to scan order", zap.Error(err), zap.String("order_uid", id))
-			return entities.Order{}, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
+			r.logger.Error("failed to scan order", "error", err, "order_uid", id)
+			return entities.Order{}, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
 		}
 
 		order.Delivery = delivery
@@ -267,7 +265,7 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	}
 
 	if order.OrderUID == "" {
-		return entities.Order{}, repo.ErrOrderNotFound
+		return entities.Order{}, domainrepo.ErrOrderNotFound
 	}
 
 	order.Items = items
@@ -278,8 +276,8 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 	query := "SELECT order_uid FROM orders ORDER BY order_uid LIMIT $1 OFFSET $2"
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
-		r.logger.Error("failed to get all orders", zap.Error(err))
-		return nil, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
+		r.logger.Error("failed to get all orders", "error", err)
+		return nil, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
 	}
 	defer rows.Close()
 
@@ -287,13 +285,13 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 	for rows.Next() {
 		var orderUID string
 		if err := rows.Scan(&orderUID); err != nil {
-			r.logger.Error("failed to scan order uid", zap.Error(err))
+			r.logger.Error("failed to scan order uid", "error", err)
 			continue
 		}
 
 		order, err := r.GetOrder(ctx, orderUID)
 		if err != nil {
-			r.logger.Error("failed to get order details", zap.Error(err), zap.String("order_uid", orderUID))
+			r.logger.Error("failed to get order details", "error", err, "order_uid", orderUID)
 			continue
 		}
 
@@ -308,8 +306,8 @@ func (r *PostgresOrderRepository) GetOrdersCount(ctx context.Context) (int, erro
 	var count int
 	err := r.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
-		r.logger.Error("failed to get orders count", zap.Error(err))
-		return 0, fmt.Errorf("%w: %v", repo.ErrQueryFailed, err)
+		r.logger.Error("failed to get orders count", "error", err)
+		return 0, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
 	}
 	return count, nil
 }
@@ -318,17 +316,17 @@ func (r *PostgresOrderRepository) DeleteOrder(ctx context.Context, id string) er
 	query := "DELETE FROM orders WHERE order_uid = $1"
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
-		r.logger.Error("failed to delete order", zap.Error(err), zap.String("order_uid", id))
-		return fmt.Errorf("%w: %v", repo.ErrOrderDeleteFailed, err)
+		r.logger.Error("failed to delete order", "error", err, "order_uid", id)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderDeleteFailed, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: %v", repo.ErrOrderDeleteFailed, err)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderDeleteFailed, err)
 	}
 
 	if rowsAffected == 0 {
-		return repo.ErrOrderNotFound
+		return domainrepo.ErrOrderNotFound
 	}
 
 	return nil
@@ -338,8 +336,8 @@ func (r *PostgresOrderRepository) ClearOrders(ctx context.Context) error {
 	query := "DELETE FROM orders"
 	_, err := r.db.ExecContext(ctx, query)
 	if err != nil {
-		r.logger.Error("failed to clear orders", zap.Error(err))
-		return fmt.Errorf("%w: %v", repo.ErrOrderClearFailed, err)
+		r.logger.Error("failed to clear orders", "error", err)
+		return fmt.Errorf("%w: %v", domainrepo.ErrOrderClearFailed, err)
 	}
 	return nil
 }

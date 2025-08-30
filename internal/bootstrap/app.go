@@ -11,9 +11,7 @@ import (
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/kafka"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/handler"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/router"
 )
@@ -32,13 +30,13 @@ func (dw *DBWrapper) Shutdown(ctx context.Context) error {
 
 type App struct {
 	Server        *http.Server
-	Logger        logger.LoggerInterface
-	Cache         cache.Cache
+	Logger        domainrepo.Logger
+	Cache         domainrepo.Cache
 	CacheRestorer *cache.CacheRestorer
-	Repo          repo.OrderRepository
+	Repo          domainrepo.OrderRepository
 	Service       application.OrderServiceInterface
 	Handler       *handler.OrderHandler
-	KafkaConsumer kafka.ConsumerInterface
+	KafkaConsumer domainrepo.EventConsumer
 	DB            Shutdownable
 }
 
@@ -67,7 +65,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	cacheRestorer := factory.NewCacheRestorer(c, rp, l)
+	cacheRestorer := factory.NewCacheRestorer(cfg, c, rp, l)
 
 	svc := application.NewOrderService(c, l, rp, cfg.Cache.GetAllLimit)
 

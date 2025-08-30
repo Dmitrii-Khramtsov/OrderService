@@ -1,9 +1,9 @@
 // github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/kafka/consumer_interface.go
 package kafka
 
-import "context"
+// import "context"
 
-type ConsumerInterface interface {
-	Start()
-	Shutdown(ctx context.Context) error
-}
+// type ConsumerInterface interface {
+// 	Start()
+// 	Shutdown(ctx context.Context) error
+// }

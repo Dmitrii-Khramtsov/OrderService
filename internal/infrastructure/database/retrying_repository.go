@@ -6,16 +6,14 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"go.uber.org/zap"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
 
 type RetryingOrderRepository struct {
-	repo   repo.OrderRepository
-	logger logger.LoggerInterface
+	repo   domainrepo.OrderRepository
+	logger domainrepo.Logger
 	config *RetryConfig
 }
 
@@ -27,7 +25,7 @@ type RetryConfig struct {
 	MaxInterval         time.Duration
 }
 
-func NewRetryingOrderRepository(repo repo.OrderRepository, logger logger.LoggerInterface, config *RetryConfig) *RetryingOrderRepository {
+func NewRetryingOrderRepository(repo domainrepo.OrderRepository, logger domainrepo.Logger, config *RetryConfig) *RetryingOrderRepository {
 	return &RetryingOrderRepository{
 		repo:   repo,
 		logger: logger,
@@ -58,8 +56,8 @@ func (r *RetryingOrderRepository) SaveOrder(ctx context.Context, order entities.
 		err := r.repo.SaveOrder(ctx, order)
 		if err != nil {
 			r.logger.Warn("failed to save order, retrying",
-				zap.String("order_uid", order.OrderUID),
-				zap.Error(err),
+				"order_uid", order.OrderUID,
+				"error", err,
 			)
 		}
 		return err
@@ -74,8 +72,8 @@ func (r *RetryingOrderRepository) GetOrder(ctx context.Context, id string) (enti
 		order, err = r.repo.GetOrder(ctx, id)
 		if err != nil {
 			r.logger.Warn("failed to get order, retrying",
-				zap.String("order_uid", id),
-				zap.Error(err),
+				"order_uid", id,
+				"error", err,
 			)
 		}
 		return err
@@ -92,7 +90,7 @@ func (r *RetryingOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 	operation := func() error {
 		orders, err = r.repo.GetAllOrders(ctx, limit, offset)
 		if err != nil {
-			r.logger.Warn("failed to get all orders, retrying", zap.Error(err))
+			r.logger.Warn("failed to get all orders, retrying", "error", err)
 		}
 		return err
 	}
@@ -108,7 +106,7 @@ func (r *RetryingOrderRepository) GetOrdersCount(ctx context.Context) (int, erro
 	operation := func() error {
 		count, err = r.repo.GetOrdersCount(ctx)
 		if err != nil {
-			r.logger.Warn("failed to get orders count, retrying", zap.Error(err))
+			r.logger.Warn("failed to get orders count, retrying", "error", err)
 		}
 		return err
 	}
@@ -122,8 +120,8 @@ func (r *RetryingOrderRepository) DeleteOrder(ctx context.Context, id string) er
 		err := r.repo.DeleteOrder(ctx, id)
 		if err != nil {
 			r.logger.Warn("failed to delete order, retrying",
-				zap.String("order_uid", id),
-				zap.Error(err),
+				"order_uid", id,
+				"error", err,
 			)
 		}
 		return err
@@ -134,7 +132,7 @@ func (r *RetryingOrderRepository) ClearOrders(ctx context.Context) error {
 	return r.withRetry(ctx, func() error {
 		err := r.repo.ClearOrders(ctx)
 		if err != nil {
-			r.logger.Warn("failed to clear orders, retrying", zap.Error(err))
+			r.logger.Warn("failed to clear orders, retrying", "error", err)
 		}
 		return err
 	})

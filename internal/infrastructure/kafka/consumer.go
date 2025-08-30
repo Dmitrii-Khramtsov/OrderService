@@ -9,30 +9,29 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/segmentio/kafka-go"
-	"go.uber.org/zap"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/application"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
 
 type Consumer struct {
-	reader        *kafka.Reader
-	dlqWriter     *kafka.Writer
-	svc           application.OrderServiceInterface
-	logger        logger.LoggerInterface
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	retryConfig   *RetryConfig
-	maxRetries    int
+	reader      *kafka.Reader
+	dlqWriter   *kafka.Writer
+	svc         application.OrderServiceInterface
+	logger      domainrepo.Logger
+	ctx         context.Context
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	retryConfig *RetryConfig
+	maxRetries  int
 }
 
 type RetryConfig struct {
-	InitialInterval    time.Duration
-	Multiplier         float64
-	MaxInterval        time.Duration
-	MaxElapsedTime     time.Duration
+	InitialInterval     time.Duration
+	Multiplier          float64
+	MaxInterval         time.Duration
+	MaxElapsedTime      time.Duration
 	RandomizationFactor float64
 }
 
@@ -42,10 +41,10 @@ func NewConsumer(
 	groupID string,
 	dlqTopic string,
 	svc application.OrderServiceInterface,
-	l logger.LoggerInterface,
+	l domainrepo.Logger,
 	retryConfig *RetryConfig,
 	maxRetries int,
-) ConsumerInterface {
+) domainrepo.EventConsumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:     brokers,
 		Topic:       topic,
@@ -94,30 +93,30 @@ func (c *Consumer) consumeLoop() {
 				if c.ctx.Err() != nil {
 					return
 				}
-				c.logger.Error("failed to fetch message", zap.Error(err))
+				c.logger.Error("failed to fetch message", "error", err)
 				time.Sleep(time.Second)
 				continue
 			}
 
 			if err := c.processWithRetry(msg); err != nil {
 				c.logger.Error("failed to process message after retries, sending to DLQ",
-					zap.String("topic", c.reader.Config().Topic),
-					zap.ByteString("key", msg.Key),
-					zap.Error(err),
+					"topic", c.reader.Config().Topic,
+					"key", string(msg.Key),
+					"error", err,
 				)
 
 				if err := c.sendToDLQ(msg); err != nil {
 					c.logger.Error("failed to send message to DLQ",
-						zap.ByteString("key", msg.Key),
-						zap.Error(err),
+						"key", string(msg.Key),
+						"error", err,
 					)
 				}
 			}
 
 			if err := c.reader.CommitMessages(c.ctx, msg); err != nil {
 				c.logger.Error("failed to commit message",
-					zap.ByteString("key", msg.Key),
-					zap.Error(err),
+					"key", string(msg.Key),
+					"error", err,
 				)
 			}
 		}
@@ -146,9 +145,9 @@ func (c *Consumer) processWithRetry(msg kafka.Message) error {
 		if err != nil {
 			lastErr = err
 			c.logger.Warn("failed to process message, retrying",
-				zap.String("order_uid", order.OrderUID),
-				zap.Int("attempt", retries),
-				zap.Error(err),
+				"order_uid", order.OrderUID,
+				"attempt", retries,
+				"error", err,
 			)
 		}
 		return err
@@ -180,12 +179,12 @@ func (c *Consumer) Shutdown(ctx context.Context) error {
 	c.cancel()
 
 	if err := c.reader.Close(); err != nil {
-		c.logger.Error("failed to close kafka reader", zap.Error(err))
+		c.logger.Error("failed to close kafka reader", "error", err)
 		return err
 	}
 
 	if err := c.dlqWriter.Close(); err != nil {
-		c.logger.Error("failed to close DLQ writer", zap.Error(err))
+		c.logger.Error("failed to close DLQ writer", "error", err)
 		return err
 	}
 

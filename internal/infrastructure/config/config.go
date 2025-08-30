@@ -8,14 +8,14 @@ import (
 )
 
 type RestorationConfig struct {
-	Timeout    int `mapstructure:"timeout"`
+	Timeout   int `mapstructure:"timeout"`
 	BatchSize int `mapstructure:"batch_size"`
 }
 
 type CacheConfig struct {
-	Capacity    int `mapstructure:"capacity"`
-	GetAllLimit int `mapstructure:"get_all_limit"`
-	Restoration      RestorationConfig      `mapstructure:"restoration"`
+	Capacity    int               `mapstructure:"capacity"`
+	GetAllLimit int               `mapstructure:"get_all_limit"`
+	Restoration RestorationConfig `mapstructure:"restoration"`
 }
 
 type DatabaseConfig struct {

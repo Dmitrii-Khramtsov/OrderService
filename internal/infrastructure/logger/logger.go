@@ -4,18 +4,13 @@ package logger
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"go.uber.org/zap"
-)
 
-type LoggerInterface interface {
-	Debug(msg string, fields ...zap.Field)
-	Info(msg string, fields ...zap.Field)
-	Warn(msg string, fields ...zap.Field)
-	Error(msg string, fields ...zap.Field)
-	Sync()
-	Shutdown(ctx context.Context) error
-}
+	
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
+)
 
 type Logger struct {
 	zap *zap.Logger
@@ -30,7 +25,8 @@ const (
 
 var ErrLoggerInit = errors.New("failed to initialize logger")
 
-func NewLogger(m mode) (LoggerInterface, error) {
+func NewLogger(m mode) (
+	domainrepo.Logger, error) {
 	var z *zap.Logger
 	var err error
 
@@ -50,24 +46,24 @@ func NewLogger(m mode) (LoggerInterface, error) {
 	return &Logger{zap: z}, nil
 }
 
-func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	l.zap.Debug(msg, fields...)
+func (l *Logger) Debug(msg string, fields ...interface{}) {
+	l.zap.Debug(msg, l.convertFields(fields)...)
 }
 
-func (l *Logger) Info(msg string, fields ...zap.Field) {
-	l.zap.Info(msg, fields...)
+func (l *Logger) Info(msg string, fields ...interface{}) {
+	l.zap.Info(msg, l.convertFields(fields)...)
 }
 
-func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	l.zap.Warn(msg, fields...)
+func (l *Logger) Warn(msg string, fields ...interface{}) {
+	l.zap.Warn(msg, l.convertFields(fields)...)
 }
 
-func (l *Logger) Error(msg string, fields ...zap.Field) {
-	l.zap.Error(msg, fields...)
+func (l *Logger) Error(msg string, fields ...interface{}) {
+	l.zap.Error(msg, l.convertFields(fields)...)
 }
 
-func (l *Logger) Sync() {
-	l.zap.Sync()
+func (l *Logger) Sync() error {
+	return l.zap.Sync()
 }
 
 func (l *Logger) Shutdown(ctx context.Context) error {
@@ -76,4 +72,40 @@ func (l *Logger) Shutdown(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (l *Logger) convertFields(fields []interface{}) []zap.Field {
+	var zapFields []zap.Field
+
+	for i := 0; i < len(fields); i += 2 {
+		if i+1 >= len(fields) {
+			l.zap.Error("odd number of arguments passed to logger")
+			break
+		}
+
+		key, ok := fields[i].(string)
+		if !ok {
+			l.zap.Error("logger key is not a string")
+			continue
+		}
+
+		value := fields[i+1]
+
+		switch v := value.(type) {
+		case string:
+			zapFields = append(zapFields, zap.String(key, v))
+		case int:
+			zapFields = append(zapFields, zap.Int(key, v))
+		case error:
+			zapFields = append(zapFields, zap.Error(v))
+		case bool:
+			zapFields = append(zapFields, zap.Bool(key, v))
+		case float64:
+			zapFields = append(zapFields, zap.Float64(key, v))
+		default:
+			zapFields = append(zapFields, zap.String(key, fmt.Sprintf("%v", v)))
+		}
+	}
+
+	return zapFields
 }

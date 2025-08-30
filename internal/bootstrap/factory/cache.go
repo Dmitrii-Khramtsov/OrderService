@@ -4,21 +4,21 @@ package factory
 import (
 	"time"
 
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	infracache "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
 )
 
-func NewCache(l logger.LoggerInterface, capacity int) cache.Cache {
-	return cache.NewOrderLRUCache(l, capacity)
+func NewCache(l domainrepo.Logger, capacity int) domainrepo.Cache {
+	return infracache.NewOrderLRUCache(l, capacity)
 }
 
-func NewCacheRestorer(c cache.Cache, r repo.OrderRepository, l logger.LoggerInterface) *cache.CacheRestorer {
-	return cache.NewCacheRestorer(
+func NewCacheRestorer(cfg *config.Config, c domainrepo.Cache, r domainrepo.OrderRepository, l domainrepo.Logger) *infracache.CacheRestorer {
+	return infracache.NewCacheRestorer(
 		c, 
 		r, 
 		l, 
-		5*time.Minute, // timeout
-		1000,          // batch size
+		time.Duration(cfg.Cache.Restoration.Timeout),
+		cfg.Cache.Restoration.BatchSize,
 	)
 }

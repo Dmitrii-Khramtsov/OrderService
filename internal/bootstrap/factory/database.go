@@ -7,17 +7,16 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	infrarepo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
 )
 
-func NewDatabase(cfg *config.Config, l logger.LoggerInterface) (*sqlx.DB, error) {
+func NewDatabase(cfg *config.Config, l domainrepo.Logger) (*sqlx.DB, error) {
 	db, err := sqlx.Connect("postgres", cfg.Database.DSN)
 	if err != nil {
 		l.Error("failed to connect to db", zap.Error(err))
-		return nil, fmt.Errorf("%w: %v", repo.ErrDatabaseConnectionFailed, err)
+		return nil, fmt.Errorf("%w: %v", domainrepo.ErrDatabaseConnectionFailed, err)
 	}
 
 	db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
@@ -27,7 +26,7 @@ func NewDatabase(cfg *config.Config, l logger.LoggerInterface) (*sqlx.DB, error)
 	return db, nil
 }
 
-func NewOrderRepository(cfg *config.Config, db *sqlx.DB, l logger.LoggerInterface) (repo.OrderRepository, error) {
+func NewOrderRepository(cfg *config.Config, db *sqlx.DB, l domainrepo.Logger) (domainrepo.OrderRepository, error) {
 	baseRepo, err := infrarepo.NewPostgresOrderRepository(db, l)
 	if err != nil {
 		return nil, err
