@@ -5,21 +5,18 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/zap"
-
-	repo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
 
 type CacheRestorer struct {
-	cache     Cache
-	repo      repo.OrderRepository
-	logger    logger.LoggerInterface
+	cache     domainrepo.Cache
+	repo      domainrepo.OrderRepository
+	logger    domainrepo.Logger
 	timeout   time.Duration
 	batchSize int
 }
 
-func NewCacheRestorer(cache Cache, repo repo.OrderRepository, logger logger.LoggerInterface, timeout time.Duration, batchSize int) *CacheRestorer {
+func NewCacheRestorer(cache domainrepo.Cache, repo domainrepo.OrderRepository, logger domainrepo.Logger, timeout time.Duration, batchSize int) *CacheRestorer {
 	return &CacheRestorer{
 		cache:     cache,
 		repo:      repo,
@@ -35,28 +32,28 @@ func (r *CacheRestorer) Restore(ctx context.Context) error {
 
 	total, err := r.repo.GetOrdersCount(ctx)
 	if err != nil {
-		r.logger.Error("failed to get orders count", zap.Error(err))
+		r.logger.Error("failed to get orders count", "error", err)
 		return err
 	}
 
-	r.logger.Info("starting cache restoration", zap.Int("total_orders", total))
+	r.logger.Info("starting cache restoration", "total_orders", total)
 
 	var restored int
 	for offset := 0; offset < total; offset += r.batchSize {
 		select {
 		case <-ctx.Done():
 			r.logger.Warn("cache restoration timed out",
-				zap.Int("restored", restored),
-				zap.Int("total", total),
+				"restored", restored,
+				"total", total,
 			)
 			return ctx.Err()
 		default:
 			batch, err := r.repo.GetAllOrders(ctx, r.batchSize, offset)
 			if err != nil {
 				r.logger.Error("failed to get orders batch",
-					zap.Error(err),
-					zap.Int("offset", offset),
-					zap.Int("limit", r.batchSize),
+					"error", err,
+					"offset", offset,
+					"limit", r.batchSize,
 				)
 				continue
 			}
@@ -67,16 +64,16 @@ func (r *CacheRestorer) Restore(ctx context.Context) error {
 			}
 
 			r.logger.Debug("processed batch",
-				zap.Int("batch_size", len(batch)),
-				zap.Int("restored", restored),
-				zap.Int("progress", (restored*100)/total),
+				"batch_size", len(batch),
+				"restored", restored,
+				"progress", (restored*100)/total,
 			)
 		}
 	}
 
 	r.logger.Info("cache restoration completed",
-		zap.Int("restored", restored),
-		zap.Int("total", total),
+		"restored", restored,
+		"total", total,
 	)
 	return nil
 }

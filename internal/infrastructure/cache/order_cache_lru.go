@@ -7,8 +7,7 @@ import (
 	"sync"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
-	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/logger"
-	"go.uber.org/zap"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
 
 type entry struct {
@@ -21,10 +20,10 @@ type orderLRUCache struct {
 	capacity int
 	cache    map[string]*list.Element
 	ll       *list.List
-	logger   logger.LoggerInterface
+	logger   domainrepo.Logger
 }
 
-func NewOrderLRUCache(l logger.LoggerInterface, capacity int) Cache {
+func NewOrderLRUCache(l domainrepo.Logger, capacity int) domainrepo.Cache {
 	if capacity <= 0 {
 		capacity = -1
 		l.Info("cache capacity is set to unlimited")
@@ -45,7 +44,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 		entry := elem.Value.(*entry)
 		entry.value = order
 		c.ll.MoveToFront(elem)
-		c.logger.Debug("order updated in cache", zap.String("order_id", orderID))
+		c.logger.Debug("order updated in cache", "order_id", orderID)
 		return
 	}
 
@@ -55,7 +54,7 @@ func (c *orderLRUCache) Set(orderID string, order entities.Order) {
 			lastEntry := lastElem.Value.(*entry)
 			delete(c.cache, lastEntry.key)
 			c.ll.Remove(lastElem)
-			c.logger.Debug("cache exceeded, most unused order deleted", zap.String("order_id", lastEntry.key))
+			c.logger.Debug("cache exceeded, most unused order deleted", "order_id", lastEntry.key)
 		}
 	}
 
@@ -70,13 +69,13 @@ func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
 
 	elem, exist := c.cache[orderID]
 	if !exist {
-		c.logger.Debug("there is no such order", zap.String("order_id", orderID))
+		c.logger.Debug("there is no such order", "order_id", orderID)
 		return entities.Order{}, false
 	}
 
 	c.ll.MoveToFront(elem)
 	entry := elem.Value.(*entry)
-	c.logger.Debug("retrieved order from cache", zap.String("order_id", orderID))
+	c.logger.Debug("retrieved order from cache", "order_id", orderID)
 	return entry.value, true
 }
 
@@ -85,7 +84,7 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 	defer c.RWMutex.RUnlock()
 
 	if limit <= 0 {
-		c.logger.Debug("limit is less than or equal to zero, returning empty slice", zap.Int("limit", limit))
+		c.logger.Debug("limit is less than or equal to zero, returning empty slice", "limit", limit)
 		return []entities.Order{}, nil
 	}
 
@@ -93,9 +92,9 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 	if len(c.cache) < limit {
 		capacity = len(c.cache)
 		c.logger.Debug("limit exceeds cache size, adjusting capacity",
-			zap.Int("limit", limit),
-			zap.Int("cache_size", len(c.cache)),
-			zap.Int("adjusted_capacity", capacity))
+			"limit", limit,
+			"cache_size", len(c.cache),
+			"adjusted_capacity", capacity)
 	}
 
 	orders := make([]entities.Order, 0, capacity)
@@ -107,8 +106,8 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 	}
 
 	c.logger.Debug("Retrieved orders from cache",
-		zap.Int("requested_limit", limit),
-		zap.Int("returned_count", count))
+		"requested_limit", limit,
+		"returned_count", count)
 
 	return orders, nil
 }
@@ -120,11 +119,11 @@ func (c *orderLRUCache) Delete(orderID string) bool {
 	if elem, exist := c.cache[orderID]; exist {
 		c.ll.Remove(elem)
 		delete(c.cache, orderID)
-		c.logger.Info("order deleted", zap.String("order_id", orderID))
+		c.logger.Info("order deleted", "order_id", orderID)
 		return true
 	}
 
-	c.logger.Info("order not deleted", zap.String("order_id", orderID))
+	c.logger.Info("order not deleted", "order_id", orderID)
 	return false
 }
 

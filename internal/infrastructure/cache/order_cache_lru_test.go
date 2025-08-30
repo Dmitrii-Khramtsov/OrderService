@@ -8,17 +8,16 @@ import (
 	"testing"
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
-	"go.uber.org/zap"
 )
 
 type MockLogger struct{}
 
-func (m *MockLogger) Debug(msg string, fields ...zap.Field) {}
-func (m *MockLogger) Info(msg string, fields ...zap.Field)  {}
-func (m *MockLogger) Warn(msg string, fields ...zap.Field)  {}
-func (m *MockLogger) Error(msg string, fields ...zap.Field) {}
-func (m *MockLogger) Sync()                                 {}
-func (m *MockLogger) Shutdown(ctx context.Context) error    { return nil }
+func (m *MockLogger) Debug(msg string, fields ...interface{}) {}
+func (m *MockLogger) Info(msg string, fields ...interface{})  {}
+func (m *MockLogger) Warn(msg string, fields ...interface{})  {}
+func (m *MockLogger) Error(msg string, fields ...interface{}) {}
+func (m *MockLogger) Sync() error                             { return nil }
+func (m *MockLogger) Shutdown(ctx context.Context) error      { return nil }
 
 func TestOrderCache_SetAndGet(t *testing.T) {
 	log := &MockLogger{}
