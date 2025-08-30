@@ -34,6 +34,8 @@ func (a *App) Shutdown(ctx context.Context) {
 		name string
 		res  Shutdownable
 	}{
+		{"cache", a.Cache},
+		{"logger", a.Logger},
 		{"repository", a.Repo},
 		{"database", a.DB},
 	}
