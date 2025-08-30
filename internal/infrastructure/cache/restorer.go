@@ -63,10 +63,16 @@ func (r *CacheRestorer) Restore(ctx context.Context) error {
 				restored++
 			}
 
+			// процент восстановленных записей
+			var progress int
+			if total > 0 {
+				progress = (restored * 100) / total
+			}
+
 			r.logger.Debug("processed batch",
 				"batch_size", len(batch),
 				"restored", restored,
-				"progress", (restored*100)/total,
+				"progress", progress,
 			)
 		}
 	}

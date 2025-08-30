@@ -170,11 +170,37 @@ func (s *orderService) ClearOrder(ctx context.Context) error {
 }
 
 func (s *orderService) GetAllOrder(ctx context.Context) ([]entities.Order, error) {
-	orders, err := s.cache.GetAll(s.getAllLimit)
+	ordersFromCache, err := s.cache.GetAll(s.getAllLimit)
 	if err != nil {
-		s.logger.Error("failed to retrieve orders from cache", "error", err)
-		return nil, fmt.Errorf("failed to retrieve orders from cache: %w", err)
+		s.logger.Warn("failed to retrieve orders from cache, falling back to database",
+			"error", err)
 	}
-	s.logger.Info("retrieved all orders from cache", "count", len(orders))
-	return orders, err
+
+	var orders []entities.Order
+	var source string
+
+	if len(ordersFromCache) > 0 {
+		orders = ordersFromCache
+		source = "cache"
+	} else {
+		s.logger.Info("cache is empty, retrieving orders from database")
+
+		orders, err = s.repo.GetAllOrders(ctx, s.getAllLimit, 0)
+		if err != nil {
+			s.logger.Error("failed to retrieve orders from database", "error", err)
+			return nil, fmt.Errorf("failed to retrieve orders from database: %w", err)
+		}
+
+		s.logger.Info("populating cache with orders from database", "count", len(orders))
+		for _, order := range orders {
+			s.cache.Set(order.OrderUID, order)
+		}
+		source = "database"
+	}
+
+	s.logger.Info("retrieved orders",
+		"source", source,
+		"count", len(orders))
+
+	return orders, nil
 }
