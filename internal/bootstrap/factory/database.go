@@ -8,8 +8,8 @@ import (
 	"go.uber.org/zap"
 
 	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
-	infrarepo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
+	infrarepo "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/database"
 )
 
 func NewDatabase(cfg *config.Config, l domainrepo.Logger) (*sqlx.DB, error) {

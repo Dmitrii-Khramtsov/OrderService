@@ -101,7 +101,7 @@ func (h *OrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orders, err := h.svc.GetAllOrder(ctx)
+	orders, err := h.svc.GetAllOrders(ctx)
 	if err != nil {
 		h.logger.Error("failed to get all orders", "error", err)
 		writeJSON(w, h.logger, http.StatusInternalServerError, map[string]string{"error": "failed to get all orders"})
@@ -114,7 +114,7 @@ func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *OrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
-	err := h.svc.DelOrder(ctx, id)
+	err := h.svc.DeleteOrder(ctx, id)
 	if errors.Is(err, domain.ErrOrderNotFound) {
 		writeJSON(w, h.logger, http.StatusNotFound, map[string]string{"error": err.Error()})
 		return
@@ -125,7 +125,7 @@ func (h *OrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *OrderHandler) Clear(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if err := h.svc.ClearOrder(ctx); err != nil {
+	if err := h.svc.ClearOrders(ctx); err != nil {
 		h.logger.Error("failed to clear orders", "error", err)
 		writeJSON(w, h.logger, http.StatusInternalServerError, map[string]string{"error": "failed to clear orders"})
 		return

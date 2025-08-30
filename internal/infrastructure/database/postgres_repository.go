@@ -54,23 +54,23 @@ func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.
 
 func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
-        INSERT INTO orders (
-            order_uid, track_number, entry, locale, internal_signature,
-            customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
-        ) VALUES (
-            :order_uid, :track_number, :entry, :locale, :internal_signature,
-            :customer_id, :delivery_service, :shardkey, :sm_id, :date_created, :oof_shard
-        ) ON CONFLICT (order_uid) DO UPDATE SET
-            track_number = EXCLUDED.track_number,
-            entry = EXCLUDED.entry,
-            locale = EXCLUDED.locale,
-            internal_signature = EXCLUDED.internal_signature,
-            customer_id = EXCLUDED.customer_id,
-            delivery_service = EXCLUDED.delivery_service,
-            shardkey = EXCLUDED.shardkey,
-            sm_id = EXCLUDED.sm_id,
-            date_created = EXCLUDED.date_created,
-            oof_shard = EXCLUDED.oof_shard
+		INSERT INTO orders (
+				order_uid, track_number, entry, locale, internal_signature,
+				customer_id, delivery_service, shardkey, sm_id, date_created, oof_shard
+		) VALUES (
+				:order_uid, :track_number, :entry, :locale, :internal_signature,
+				:customer_id, :delivery_service, :shardkey, :sm_id, :date_created, :oof_shard
+		) ON CONFLICT (order_uid) DO UPDATE SET
+				track_number = EXCLUDED.track_number,
+				entry = EXCLUDED.entry,
+				locale = EXCLUDED.locale,
+				internal_signature = EXCLUDED.internal_signature,
+				customer_id = EXCLUDED.customer_id,
+				delivery_service = EXCLUDED.delivery_service,
+				shardkey = EXCLUDED.shardkey,
+				sm_id = EXCLUDED.sm_id,
+				date_created = EXCLUDED.date_created,
+				oof_shard = EXCLUDED.oof_shard
     `
 
 	_, err := tx.NamedExecContext(ctx, query, order)
@@ -84,18 +84,18 @@ func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, or
 
 func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
-        INSERT INTO delivery (
-            order_uid, name, phone, zip, city, address, region, email
-        ) VALUES (
-            :order_uid, :name, :phone, :zip, :city, :address, :region, :email
-        ) ON CONFLICT (order_uid) DO UPDATE SET
-            name = EXCLUDED.name,
-            phone = EXCLUDED.phone,
-            zip = EXCLUDED.zip,
-            city = EXCLUDED.city,
-            address = EXCLUDED.address,
-            region = EXCLUDED.region,
-            email = EXCLUDED.email
+		INSERT INTO delivery (
+				order_uid, name, phone, zip, city, address, region, email
+		) VALUES (
+				:order_uid, :name, :phone, :zip, :city, :address, :region, :email
+		) ON CONFLICT (order_uid) DO UPDATE SET
+				name = EXCLUDED.name,
+				phone = EXCLUDED.phone,
+				zip = EXCLUDED.zip,
+				city = EXCLUDED.city,
+				address = EXCLUDED.address,
+				region = EXCLUDED.region,
+				email = EXCLUDED.email
     `
 
 	deliveryMap := map[string]interface{}{
@@ -120,23 +120,23 @@ func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx,
 
 func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
-        INSERT INTO payment (
-            order_uid, transaction, request_id, currency, provider,
-            amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
-        ) VALUES (
-            :order_uid, :transaction, :request_id, :currency, :provider,
-            :amount, :payment_dt, :bank, :delivery_cost, :goods_total, :custom_fee
-        ) ON CONFLICT (order_uid) DO UPDATE SET
-            transaction = EXCLUDED.transaction,
-            request_id = EXCLUDED.request_id,
-            currency = EXCLUDED.currency,
-            provider = EXCLUDED.provider,
-            amount = EXCLUDED.amount,
-            payment_dt = EXCLUDED.payment_dt,
-            bank = EXCLUDED.bank,
-            delivery_cost = EXCLUDED.delivery_cost,
-            goods_total = EXCLUDED.goods_total,
-            custom_fee = EXCLUDED.custom_fee
+		INSERT INTO payment (
+				order_uid, transaction, request_id, currency, provider,
+				amount, payment_dt, bank, delivery_cost, goods_total, custom_fee
+		) VALUES (
+				:order_uid, :transaction, :request_id, :currency, :provider,
+				:amount, :payment_dt, :bank, :delivery_cost, :goods_total, :custom_fee
+		) ON CONFLICT (order_uid) DO UPDATE SET
+				transaction = EXCLUDED.transaction,
+				request_id = EXCLUDED.request_id,
+				currency = EXCLUDED.currency,
+				provider = EXCLUDED.provider,
+				amount = EXCLUDED.amount,
+				payment_dt = EXCLUDED.payment_dt,
+				bank = EXCLUDED.bank,
+				delivery_cost = EXCLUDED.delivery_cost,
+				goods_total = EXCLUDED.goods_total,
+				custom_fee = EXCLUDED.custom_fee
     `
 
 	paymentMap := map[string]interface{}{
@@ -163,7 +163,6 @@ func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, 
 }
 
 func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
-	// First delete existing items
 	deleteQuery := "DELETE FROM items WHERE order_uid = $1"
 	_, err := tx.ExecContext(ctx, deleteQuery, order.OrderUID)
 	if err != nil {
@@ -171,15 +170,14 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
 	}
 
-	// Insert new items
 	query := `
-        INSERT INTO items (
-            chrt_id, order_uid, track_number, price, rid, name,
-            sale, size, total_price, nm_id, brand, status
-        ) VALUES (
-            :chrt_id, :order_uid, :track_number, :price, :rid, :name,
-            :sale, :size, :total_price, :nm_id, :brand, :status
-        )
+		INSERT INTO items (
+				chrt_id, order_uid, track_number, price, rid, name,
+				sale, size, total_price, nm_id, brand, status
+		) VALUES (
+				:chrt_id, :order_uid, :track_number, :price, :rid, :name,
+				:sale, :size, :total_price, :nm_id, :brand, :status
+		)
     `
 
 	for _, item := range order.Items {
@@ -210,18 +208,18 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 
 func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (entities.Order, error) {
 	query := `
-        SELECT 
-            o.*,
-            d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
-            p.transaction, p.request_id, p.currency, p.provider, p.amount,
-            p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
-            i.chrt_id, i.track_number, i.price, i.rid, i.name as item_name,
-            i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
-        FROM orders o
-        LEFT JOIN delivery d ON o.order_uid = d.order_uid
-        LEFT JOIN payment p ON o.order_uid = p.order_uid
-        LEFT JOIN items i ON o.order_uid = i.order_uid
-        WHERE o.order_uid = $1
+		SELECT 
+				o.*,
+				d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+				p.transaction, p.request_id, p.currency, p.provider, p.amount,
+				p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
+				i.chrt_id, i.track_number, i.price, i.rid, i.name as item_name,
+				i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
+		FROM orders o
+		LEFT JOIN delivery d ON o.order_uid = d.order_uid
+		LEFT JOIN payment p ON o.order_uid = p.order_uid
+		LEFT JOIN items i ON o.order_uid = i.order_uid
+		WHERE o.order_uid = $1
     `
 
 	rows, err := r.db.QueryxContext(ctx, query, id)
@@ -273,22 +271,21 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	return order, nil
 }
 
-// infrastructure/database/postgres_repository.go
 func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]entities.Order, error) {
 	// основной запрос для получения заказов с доставкой и оплатой
 	mainQuery := `
-        SELECT 
-            o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature,
-            o.customer_id, o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
-            d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
-            p.transaction, p.request_id, p.currency, p.provider, p.amount,
-            p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee
-        FROM orders o
-        LEFT JOIN delivery d ON o.order_uid = d.order_uid
-        LEFT JOIN payment p ON o.order_uid = p.order_uid
-        ORDER BY o.order_uid
-        LIMIT $1 OFFSET $2
-    `
+		SELECT 
+				o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature,
+				o.customer_id, o.delivery_service, o.shardkey, o.sm_id, o.date_created, o.oof_shard,
+				d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+				p.transaction, p.request_id, p.currency, p.provider, p.amount,
+				p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee
+		FROM orders o
+		LEFT JOIN delivery d ON o.order_uid = d.order_uid
+		LEFT JOIN payment p ON o.order_uid = p.order_uid
+		ORDER BY o.order_uid
+		LIMIT $1 OFFSET $2
+  `
 
 	rows, err := r.db.QueryContext(ctx, mainQuery, limit, offset)
 	if err != nil {
@@ -331,13 +328,13 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 
 	// второй запрос для получения всех items для найденных заказов
 	itemsQuery := `
-        SELECT 
-            chrt_id, order_uid, track_number, price, rid, name,
-            sale, size, total_price, nm_id, brand, status
-        FROM items
-        WHERE order_uid = ANY($1)
-        ORDER BY order_uid, chrt_id
-    `
+		SELECT 
+				chrt_id, order_uid, track_number, price, rid, name,
+				sale, size, total_price, nm_id, brand, status
+		FROM items
+		WHERE order_uid = ANY($1)
+		ORDER BY order_uid, chrt_id
+  `
 
 	itemRows, err := r.db.QueryContext(ctx, itemsQuery, pq.Array(orderUIDs))
 	if err != nil {

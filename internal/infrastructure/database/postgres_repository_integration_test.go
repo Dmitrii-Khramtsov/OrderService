@@ -20,7 +20,7 @@ import (
 
 func setupTestDB(t *testing.T) *sqlx.DB {
 	ctx := context.Background()
-	
+
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:13",
 		ExposedPorts: []string{"5432/tcp"},
@@ -31,26 +31,26 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		},
 		WaitingFor: wait.ForLog("database system is ready to accept connections"),
 	}
-	
+
 	postgresContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 	})
 	require.NoError(t, err)
-	
+
 	host, err := postgresContainer.Host(ctx)
 	require.NoError(t, err)
-	
+
 	port, err := postgresContainer.MappedPort(ctx, "5432")
 	require.NoError(t, err)
-	
+
 	dsn := "postgres://testuser:testpass@" + host + ":" + port.Port() + "/testdb?sslmode=disable"
-	
+
 	time.Sleep(3 * time.Second)
-	
+
 	db, err := sqlx.Connect("postgres", dsn)
 	require.NoError(t, err)
-	
+
 	_, err = db.Exec(`
 		CREATE TABLE orders (
 			order_uid TEXT PRIMARY KEY NOT NULL,
@@ -108,12 +108,12 @@ func setupTestDB(t *testing.T) *sqlx.DB {
 		);
 	`)
 	require.NoError(t, err)
-	
+
 	t.Cleanup(func() {
 		db.Close()
 		postgresContainer.Terminate(ctx)
 	})
-	
+
 	return db
 }
 
@@ -121,16 +121,16 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
+
 	db := setupTestDB(t)
 	logger, _ := logger.NewLogger(logger.DEV)
-	
+
 	repo, err := NewPostgresOrderRepository(db, logger)
 	require.NoError(t, err)
-	
+
 	t.Run("Save and Get Order", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		order := entities.Order{
 			OrderUID:        "test-order-1",
 			TrackNumber:     "TEST123",
@@ -180,33 +180,33 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 				},
 			},
 		}
-		
+
 		err := repo.SaveOrder(ctx, order)
 		assert.NoError(t, err)
-		
+
 		retrieved, err := repo.GetOrder(ctx, "test-order-1")
 		assert.NoError(t, err)
 		assert.Equal(t, order.OrderUID, retrieved.OrderUID)
 		assert.Equal(t, order.TrackNumber, retrieved.TrackNumber)
 		assert.Len(t, retrieved.Items, 1)
 		assert.Equal(t, order.Items[0].ChrtID, retrieved.Items[0].ChrtID)
-		
+
 		orders, err := repo.GetAllOrders(ctx, 100, 0)
 		assert.NoError(t, err)
 		assert.Len(t, orders, 1)
 		assert.Equal(t, order.OrderUID, orders[0].OrderUID)
 	})
-	
+
 	t.Run("Get Non-Existent Order", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		_, err := repo.GetOrder(ctx, "non-existent")
 		assert.ErrorIs(t, err, domainrepo.ErrOrderNotFound)
 	})
-	
+
 	t.Run("Update Order", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		order := entities.Order{
 			OrderUID:        "test-order-2",
 			TrackNumber:     "TEST456",
@@ -256,27 +256,27 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 				},
 			},
 		}
-		
+
 		err := repo.SaveOrder(ctx, order)
 		assert.NoError(t, err)
-		
+
 		order.Delivery.Name = "Updated Name"
 		order.Payment.Amount = 2000
 		order.Items[0].Price = 500
-		
+
 		err = repo.SaveOrder(ctx, order)
 		assert.NoError(t, err)
-		
+
 		retrieved, err := repo.GetOrder(ctx, "test-order-2")
 		assert.NoError(t, err)
 		assert.Equal(t, "Updated Name", retrieved.Delivery.Name)
 		assert.Equal(t, 2000, retrieved.Payment.Amount)
 		assert.Equal(t, 500, retrieved.Items[0].Price)
 	})
-	
+
 	t.Run("Delete Order", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		order := entities.Order{
 			OrderUID:        "test-order-3",
 			TrackNumber:     "TEST789",
@@ -326,20 +326,20 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 				},
 			},
 		}
-		
+
 		err := repo.SaveOrder(ctx, order)
 		assert.NoError(t, err)
-		
+
 		err = repo.DeleteOrder(ctx, "test-order-3")
 		assert.NoError(t, err)
-		
+
 		_, err = repo.GetOrder(ctx, "test-order-3")
 		assert.ErrorIs(t, err, domainrepo.ErrOrderNotFound)
 	})
-	
+
 	t.Run("Clear Orders", func(t *testing.T) {
 		ctx := context.Background()
-		
+
 		order := entities.Order{
 			OrderUID:        "test-order-4",
 			TrackNumber:     "TEST101",
@@ -389,13 +389,13 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 				},
 			},
 		}
-		
+
 		err := repo.SaveOrder(ctx, order)
 		assert.NoError(t, err)
-		
+
 		err = repo.ClearOrders(ctx)
 		assert.NoError(t, err)
-		
+
 		orders, err := repo.GetAllOrders(ctx, 100, 0)
 		assert.NoError(t, err)
 		assert.Empty(t, orders)

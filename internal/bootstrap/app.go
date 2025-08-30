@@ -9,9 +9,9 @@ import (
 
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/application"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/bootstrap/factory"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
-	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/handler"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/interface/http/router"
 )

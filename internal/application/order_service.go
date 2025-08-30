@@ -11,14 +11,6 @@ import (
 	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
 
-type OrderServiceInterface interface {
-	SaveOrder(ctx context.Context, order entities.Order) (OrderResult, error)
-	GetOrder(ctx context.Context, id string) (entities.Order, error)
-	GetAllOrder(ctx context.Context) ([]entities.Order, error)
-	DelOrder(ctx context.Context, id string) error
-	ClearOrder(ctx context.Context) error
-}
-
 type orderService struct {
 	cache       domainrepo.Cache
 	logger      domainrepo.Logger
@@ -139,7 +131,7 @@ func (s *orderService) fetchFromRepo(ctx context.Context, id string) (entities.O
 	return order, nil
 }
 
-func (s *orderService) DelOrder(ctx context.Context, id string) error {
+func (s *orderService) DeleteOrder(ctx context.Context, id string) error {
 	if err := s.repo.DeleteOrder(ctx, id); err != nil {
 		s.logger.Error("failed to delete order from db",
 			"order_id", id,
@@ -157,7 +149,7 @@ func (s *orderService) DelOrder(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *orderService) ClearOrder(ctx context.Context) error {
+func (s *orderService) ClearOrders(ctx context.Context) error {
 	s.cache.Clear()
 
 	if err := s.repo.ClearOrders(ctx); err != nil {
@@ -169,7 +161,7 @@ func (s *orderService) ClearOrder(ctx context.Context) error {
 	return nil
 }
 
-func (s *orderService) GetAllOrder(ctx context.Context) ([]entities.Order, error) {
+func (s *orderService) GetAllOrders(ctx context.Context) ([]entities.Order, error) {
 	ordersFromCache, err := s.cache.GetAll(s.getAllLimit)
 	if err != nil {
 		s.logger.Warn("failed to retrieve orders from cache, falling back to database",

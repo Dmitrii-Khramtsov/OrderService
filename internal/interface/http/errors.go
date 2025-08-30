@@ -4,6 +4,6 @@ package http
 import "errors"
 
 var (
-    ErrInvalidJSON      = errors.New("invalid JSON format")
-    ErrJSONEncodeFailed = errors.New("failed to encode JSON response")
+	ErrInvalidJSON      = errors.New("invalid JSON format")
+	ErrJSONEncodeFailed = errors.New("failed to encode JSON response")
 )

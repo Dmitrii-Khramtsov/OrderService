@@ -75,8 +75,7 @@ orderservice
 │   │   │   ├── logger.go
 │   │   │   └── server.go
 │   │   ├── lifecycle.go
-│   │   ├── migrator.go
-│   │   └── server.go
+│   │   └── migrator.go
 │   ├── domain
 │   │   ├── entities
 │   │   │   ├── delivery.go
@@ -85,18 +84,20 @@ orderservice
 │   │   │   ├── order.go
 │   │   │   └── payment.go
 │   │   ├── errors.go
-│   │   └── repositories
-│   │       └── repository.go
+│   │   └── repository
+│   │       ├── cache.go
+│   │       ├── errors.go
+│   │       ├── event_consumer.go
+│   │       ├── logger.go
+│   │       └── order_repository.go
 │   ├── infrastructure
 │   │   ├── cache
-│   │   │   ├── cache.go
 │   │   │   ├── order_cache_lru_test.go
 │   │   │   ├── order_cache_lru.go
 │   │   │   └── restorer.go
 │   │   ├── config
 │   │   │   └── config.go
 │   │   ├── database
-│   │   │   ├── errors.go
 │   │   │   ├── migrations
 │   │   │   │   ├── 0001_create_orders_table.down.sql
 │   │   │   │   ├── 0001_create_orders_table.up.sql
@@ -104,7 +105,6 @@ orderservice
 │   │   │   │   └── 0002_add_indexes_to_orders_table.up.sql
 │   │   │   ├── postgres_repository_integration_test.go
 │   │   │   ├── postgres_repository.go
-│   │   │   ├── repository.go
 │   │   │   ├── retrying_repository_test.go
 │   │   │   └── retrying_repository.go
 │   │   ├── kafka
