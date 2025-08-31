@@ -128,10 +128,7 @@ func TestOrderCache_GetAll(t *testing.T) {
 	cache.Set("a", order1)
 	cache.Set("b", order2)
 
-	orders, err := cache.GetAll(10)
-	if err != nil {
-		t.Errorf("Expected no error during GetAll, got %v", err)
-	}
+	orders := cache.GetAll(10)
 	if len(orders) != 2 {
 		t.Errorf("Expected 2 orders, got %d", len(orders))
 	}
@@ -236,10 +233,7 @@ func TestOrderCache_GetAllOrder(t *testing.T) {
 	cache.Set("b", orderB)
 	cache.Get("a")
 
-	orders, err := cache.GetAll(2)
-	if err != nil {
-		t.Errorf("Expected no error during GetAll, got %v", err)
-	}
+	orders := cache.GetAll(2)
 	if len(orders) != 2 {
 		t.Errorf("Expected 2 orders, got %d", len(orders))
 	}

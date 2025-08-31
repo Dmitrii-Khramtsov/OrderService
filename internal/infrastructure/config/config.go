@@ -26,11 +26,12 @@ type DatabaseConfig struct {
 }
 
 type KafkaConfig struct {
-	Brokers    []string `mapstructure:"brokers"`
-	Topic      string   `mapstructure:"topic"`
-	GroupID    string   `mapstructure:"group_id"`
-	DLQTopic   string   `mapstructure:"dlq_topic"`
-	MaxRetries int      `mapstructure:"max_retries"`
+	Brokers        []string      `mapstructure:"brokers"`
+	Topic          string        `mapstructure:"topic"`
+	GroupID        string        `mapstructure:"group_id"`
+	DLQTopic       string        `mapstructure:"dlq_topic"`
+	MaxRetries     int           `mapstructure:"max_retries"`
+	ProcessingTime time.Duration `yaml:"processing_time"`
 }
 
 type ServerConfig struct {

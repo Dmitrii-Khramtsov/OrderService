@@ -16,10 +16,13 @@ type CacheRestorer struct {
 	batchSize int
 }
 
-const defaultBatchSize = 1000
+const (
+	defaultBatchSize = 1000
+	maxbatchSize = 5000
+)
 
 func NewCacheRestorer(cache domainrepo.Cache, repo domainrepo.OrderRepository, logger domainrepo.Logger, timeout time.Duration, batchSize int) *CacheRestorer {
-	if batchSize <= 0 || batchSize > 5000 {
+	if batchSize <= 0 || batchSize > maxbatchSize {
 		batchSize = defaultBatchSize
 	}
 	return &CacheRestorer{

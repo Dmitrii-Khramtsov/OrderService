@@ -80,13 +80,13 @@ func (c *orderLRUCache) Get(orderID string) (entities.Order, bool) {
 	return entry.value, true
 }
 
-func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
+func (c *orderLRUCache) GetAll(limit int) []entities.Order {
 	c.RWMutex.RLock()
 	defer c.RWMutex.RUnlock()
 
 	if limit <= 0 {
 		c.logger.Debug("limit is less than or equal to zero, returning empty slice", "limit", limit)
-		return []entities.Order{}, nil
+		return []entities.Order{}
 	}
 
 	capacity := limit
@@ -110,7 +110,7 @@ func (c *orderLRUCache) GetAll(limit int) ([]entities.Order, error) {
 		"requested_limit", limit,
 		"returned_count", count)
 
-	return orders, nil
+	return orders
 }
 
 func (c *orderLRUCache) Delete(orderID string) bool {

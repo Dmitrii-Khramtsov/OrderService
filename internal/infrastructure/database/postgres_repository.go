@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
 	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
@@ -29,7 +30,7 @@ func NewPostgresOrderRepository(db *sqlx.DB, logger domainrepo.Logger) (*Postgre
 func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.Order) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("%w: %v", domainrepo.ErrTransactionFailed, err)
+		return fmt.Errorf("%w: %v", ErrTransactionFailed, err)
 	}
 	defer tx.Rollback()
 
@@ -49,7 +50,11 @@ func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("%w: %v", ErrTransactionFailed, err)
+	}
+
+	return nil
 }
 
 func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
@@ -76,7 +81,7 @@ func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, or
 	_, err := tx.NamedExecContext(ctx, query, order)
 	if err != nil {
 		r.logger.Error("failed to save order", "error", err, "order_uid", order.OrderUID)
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -112,7 +117,7 @@ func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx,
 	_, err := tx.NamedExecContext(ctx, query, deliveryMap)
 	if err != nil {
 		r.logger.Error("failed to save delivery", "error", err, "order_uid", order.OrderUID)
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -156,7 +161,7 @@ func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, 
 	_, err := tx.NamedExecContext(ctx, query, paymentMap)
 	if err != nil {
 		r.logger.Error("failed to save payment", "error", err, "order_uid", order.OrderUID)
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
 	}
 
 	return nil
@@ -167,7 +172,7 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 	_, err := tx.ExecContext(ctx, deleteQuery, order.OrderUID)
 	if err != nil {
 		r.logger.Error("failed to delete existing items", "error", err, "order_uid", order.OrderUID)
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
 	}
 
 	query := `
@@ -199,7 +204,7 @@ func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, or
 		_, err := tx.NamedExecContext(ctx, query, itemMap)
 		if err != nil {
 			r.logger.Error("failed to save item", "error", err, "order_uid", order.OrderUID)
-			return fmt.Errorf("%w: %v", domainrepo.ErrOrderSaveFailed, err)
+			return fmt.Errorf("%w: %v", ErrOrderSaveFailed, err)
 		}
 	}
 
@@ -225,10 +230,10 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	rows, err := r.db.QueryxContext(ctx, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return entities.Order{}, domainrepo.ErrOrderNotFound
+			return entities.Order{}, domain.ErrOrderNotFound
 		}
 		r.logger.Error("failed to get order", "error", err, "order_uid", id)
-		return entities.Order{}, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
+		return entities.Order{}, fmt.Errorf("%w: %v", ErrQueryFailed, err)
 	}
 	defer rows.Close()
 
@@ -255,7 +260,7 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 
 		if err != nil {
 			r.logger.Error("failed to scan order", "error", err, "order_uid", id)
-			return entities.Order{}, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
+			return entities.Order{}, fmt.Errorf("%w: %v", ErrQueryFailed, err)
 		}
 
 		order.Delivery = delivery
@@ -264,7 +269,7 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 	}
 
 	if order.OrderUID == "" {
-		return entities.Order{}, domainrepo.ErrOrderNotFound
+		return entities.Order{}, domain.ErrOrderNotFound
 	}
 
 	order.Items = items
@@ -272,7 +277,6 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 }
 
 func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offset int) ([]entities.Order, error) {
-	// основной запрос для получения заказов с доставкой и оплатой
 	mainQuery := `
 		SELECT 
 				o.order_uid, o.track_number, o.entry, o.locale, o.internal_signature,
@@ -290,7 +294,7 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 	rows, err := r.db.QueryContext(ctx, mainQuery, limit, offset)
 	if err != nil {
 		r.logger.Error("failed to get all orders", "error", err)
-		return nil, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrQueryFailed, err)
 	}
 	defer rows.Close()
 
@@ -326,7 +330,6 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 		return orders, nil
 	}
 
-	// второй запрос для получения всех items для найденных заказов
 	itemsQuery := `
 		SELECT 
 				chrt_id, order_uid, track_number, price, rid, name,
@@ -339,7 +342,7 @@ func (r *PostgresOrderRepository) GetAllOrders(ctx context.Context, limit, offse
 	itemRows, err := r.db.QueryContext(ctx, itemsQuery, pq.Array(orderUIDs))
 	if err != nil {
 		r.logger.Error("failed to get items for orders", "error", err)
-		return nil, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrQueryFailed, err)
 	}
 	defer itemRows.Close()
 
@@ -370,7 +373,7 @@ func (r *PostgresOrderRepository) GetOrdersCount(ctx context.Context) (int, erro
 	err := r.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
 		r.logger.Error("failed to get orders count", "error", err)
-		return 0, fmt.Errorf("%w: %v", domainrepo.ErrQueryFailed, err)
+		return 0, fmt.Errorf("%w: %v", ErrQueryFailed, err)
 	}
 	return count, nil
 }
@@ -380,16 +383,16 @@ func (r *PostgresOrderRepository) DeleteOrder(ctx context.Context, id string) er
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		r.logger.Error("failed to delete order", "error", err, "order_uid", id)
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderDeleteFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderDeleteFailed, err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderDeleteFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderDeleteFailed, err)
 	}
 
 	if rowsAffected == 0 {
-		return domainrepo.ErrOrderNotFound
+		return domain.ErrOrderNotFound
 	}
 
 	return nil
@@ -400,11 +403,15 @@ func (r *PostgresOrderRepository) ClearOrders(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, query)
 	if err != nil {
 		r.logger.Error("failed to clear orders", "error", err)
-		return fmt.Errorf("%w: %v", domainrepo.ErrOrderClearFailed, err)
+		return fmt.Errorf("%w: %v", ErrOrderClearFailed, err)
 	}
 	return nil
 }
 
 func (r *PostgresOrderRepository) Shutdown(ctx context.Context) error {
-	return r.db.Close()
+	if err := r.db.Close(); err != nil {
+		r.logger.Error("failed to close database connection", "error", err)
+		return fmt.Errorf("%w: %v", ErrDatabaseConnectionFailed, err)
+	}
+	return nil
 }
