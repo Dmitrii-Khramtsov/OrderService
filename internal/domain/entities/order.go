@@ -87,8 +87,16 @@ func (o Order) Validate() error {
 		return ErrInvalidPaymentAmount
 	case o.Delivery.Email != "" && !strings.Contains(o.Delivery.Email, "@"):
 		return ErrInvalidEmailFormat
-	case o.Delivery.Phone != "" && !strings.HasPrefix(o.Delivery.Phone, "+"):
-		return ErrInvalidPhoneFormat
+	case o.Delivery.Phone != "":
+		if !strings.HasPrefix(o.Delivery.Phone, "+") {
+			return ErrInvalidPhoneFormat
+		}
+		digits := o.Delivery.Phone[1:]
+		for _, r := range digits {
+			if r < '0' || r > '9' {
+				return ErrInvalidPhoneFormat
+			}
+		}
 	}
 	return nil
 }

@@ -27,109 +27,194 @@ func NewOrderHandler(s application.OrderServiceInterface, l domainrepo.Logger) *
 	}
 }
 
-func writeJSON(w http.ResponseWriter, l domainrepo.Logger, status int, v any) {
+func (h *OrderHandler) writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
+
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		l.Error("failed to encode JSON response", "error", err)
-		http.Error(w, `{"error": "`+httperrors.ErrJSONEncodeFailed.Error()+`"}`, http.StatusInternalServerError)
+		h.logger.Error("failed to encode JSON response",
+			"error", err,
+			"status", status,
+		)
+		
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
 	}
+}
+
+func (h *OrderHandler) writeError(w http.ResponseWriter, status int, err *httperrors.HTTPError) {
+	h.writeJSON(w, status, map[string]interface{}{
+		"error": err,
+	})
 }
 
 func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	order, err := h.decodeOrderRequest(r)
-	if err != nil {
-		h.handleDecodeError(w, err)
+
+	var order entities.Order
+	if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
+		h.logger.Warn("failed to decode order request",
+			"error", err,
+		)
+		h.writeError(w, http.StatusBadRequest, httperrors.NewHTTPError(
+			httperrors.ErrCodeInvalidJSON,
+			"Invalid JSON format",
+			err.Error(),
+		))
 		return
 	}
 
 	result, err := h.svc.SaveOrder(ctx, order)
 	if err != nil {
-		h.handleServiceError(w, err)
+		h.handleServiceError(w, err, "failed to save order")
 		return
 	}
 
-	h.logger.Info("order saved successfully", "order_id", order.OrderUID, "result", string(result))
-	h.writeSuccessResponse(w, order.OrderUID, string(result))
-}
-
-func (h *OrderHandler) decodeOrderRequest(r *http.Request) (entities.Order, error) {
-	var order entities.Order
-	if err := json.NewDecoder(r.Body).Decode(&order); err != nil {
-		return entities.Order{}, err
-	}
-	return order, nil
-}
-
-func (h *OrderHandler) handleDecodeError(w http.ResponseWriter, err error) {
-	h.logger.Warn("failed to decode order request",
-		"error", err,
-		"error_type", httperrors.ErrInvalidJSON.Error(),
+	h.logger.Info("order saved successfully",
+		"order_id", order.OrderUID,
+		"result", string(result),
 	)
-	writeJSON(w, h.logger, http.StatusBadRequest, map[string]string{"error": httperrors.ErrInvalidJSON.Error()})
-}
 
-func (h *OrderHandler) handleServiceError(w http.ResponseWriter, err error) {
-	if errors.Is(err, domain.ErrInvalidOrder) {
-		h.logger.Warn("invalid order data", "error", err)
-		writeJSON(w, h.logger, http.StatusBadRequest, map[string]string{"error": err.Error()})
-	} else {
-		h.logger.Error("failed to save order", "error", err)
-		writeJSON(w, h.logger, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-	}
-}
-
-func (h *OrderHandler) writeSuccessResponse(w http.ResponseWriter, orderID, result string) {
-	writeJSON(w, h.logger, http.StatusOK, map[string]string{
-		"order_id": orderID,
-		"result":   result,
+	h.writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"order_id": order.OrderUID,
+		"result":   string(result),
+		"status":   "success",
 	})
+}
+
+func (h *OrderHandler) handleServiceError(w http.ResponseWriter, err error, context string) {
+	var appErr *application.AppError
+
+	switch {
+	case errors.As(err, &appErr):
+		h.logger.Error(context,
+			"error", err,
+			"error_code", appErr.Code,
+			"operation", appErr.Op,
+		)
+		h.writeError(w, http.StatusInternalServerError, httperrors.NewHTTPError(
+			httperrors.ErrCodeInternalError,
+			"Internal server error",
+			"",
+		))
+
+	case errors.Is(err, domain.ErrInvalidOrder):
+		h.logger.Warn("invalid order data",
+			"error", err,
+		)
+		h.writeError(w, http.StatusBadRequest, httperrors.NewHTTPError(
+			httperrors.ErrCodeInvalidRequest,
+			"Invalid order data",
+			err.Error(),
+		))
+
+	case errors.Is(err, domain.ErrOrderNotFound):
+		h.logger.Warn("order not found",
+			"error", err,
+		)
+		h.writeError(w, http.StatusNotFound, httperrors.NewHTTPError(
+			httperrors.ErrCodeOrderNotFound,
+			"Order not found",
+			"",
+		))
+
+	default:
+		h.logger.Error("unexpected error",
+			"error", err,
+			"context", context,
+		)
+		h.writeError(w, http.StatusInternalServerError, httperrors.NewHTTPError(
+			httperrors.ErrCodeInternalError,
+			"Internal server error",
+			"",
+		))
+	}
 }
 
 func (h *OrderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
-	order, err := h.svc.GetOrder(ctx, id)
-	if errors.Is(err, domain.ErrOrderNotFound) {
-		writeJSON(w, h.logger, http.StatusNotFound, map[string]string{"error": err.Error()})
+
+	if id == "" {
+		h.writeError(w, http.StatusBadRequest, httperrors.NewHTTPError(
+			httperrors.ErrCodeInvalidRequest,
+			"Order ID is required",
+			"",
+		))
 		return
 	}
-	h.logger.Info("order retrieved successfully", "order_id", id)
-	writeJSON(w, h.logger, http.StatusOK, order)
+
+	order, err := h.svc.GetOrder(ctx, id)
+	if err != nil {
+		h.handleServiceError(w, err, "failed to get order")
+		return
+	}
+
+	h.logger.Info("order retrieved successfully",
+		"order_id", id,
+	)
+	h.writeJSON(w, http.StatusOK, order)
 }
 
 func (h *OrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
 	orders, err := h.svc.GetAllOrders(ctx)
 	if err != nil {
-		h.logger.Error("failed to get all orders", "error", err)
-		writeJSON(w, h.logger, http.StatusInternalServerError, map[string]string{"error": "failed to get all orders"})
+		h.handleServiceError(w, err, "failed to get all orders")
 		return
 	}
-	h.logger.Info("orders retrieved successfully", "count", len(orders))
-	writeJSON(w, h.logger, http.StatusOK, orders)
+
+	h.logger.Info("orders retrieved successfully",
+		"count", len(orders),
+	)
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"orders": orders,
+		"count":  len(orders),
+	})
 }
 
 func (h *OrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := chi.URLParam(r, "id")
-	err := h.svc.DeleteOrder(ctx, id)
-	if errors.Is(err, domain.ErrOrderNotFound) {
-		writeJSON(w, h.logger, http.StatusNotFound, map[string]string{"error": err.Error()})
+
+	if id == "" {
+		h.writeError(w, http.StatusBadRequest, httperrors.NewHTTPError(
+			httperrors.ErrCodeInvalidRequest,
+			"Order ID is required",
+			"",
+		))
 		return
 	}
-	h.logger.Info("order deleted successfully", "order_id", id)
-	writeJSON(w, h.logger, http.StatusOK, map[string]string{"status": "deleted", "order_id": id})
+
+	err := h.svc.DeleteOrder(ctx, id)
+	if err != nil {
+		h.handleServiceError(w, err, "failed to delete order")
+		return
+	}
+
+	h.logger.Info("order deleted successfully",
+		"order_id", id,
+	)
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":   "deleted",
+		"order_id": id,
+	})
 }
 
 func (h *OrderHandler) Clear(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if err := h.svc.ClearOrders(ctx); err != nil {
-		h.logger.Error("failed to clear orders", "error", err)
-		writeJSON(w, h.logger, http.StatusInternalServerError, map[string]string{"error": "failed to clear orders"})
+
+	err := h.svc.ClearOrders(ctx)
+	if err != nil {
+		h.handleServiceError(w, err, "failed to clear orders")
 		return
 	}
+
 	h.logger.Info("all orders cleared")
-	writeJSON(w, h.logger, http.StatusOK, map[string]string{"status": "cleared"})
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status": "cleared",
+		"count":  0,
+	})
 }

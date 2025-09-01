@@ -12,6 +12,6 @@ type Cache interface {
 	Set(key string, order entities.Order)
 	Delete(key string) bool
 	Clear()
-	GetAll(limit int) ([]entities.Order, error)
+	GetAll(limit int) []entities.Order
 	Shutdown(ctx context.Context) error
 }

@@ -2,21 +2,19 @@
 package factory
 
 import (
-	"time"
-
-	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/application"
+	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/kafka"
 )
 
 func NewKafkaConsumer(cfg config.KafkaConfig, svc application.OrderServiceInterface, l domainrepo.Logger) domainrepo.EventConsumer {
 	retryConfig := &kafka.RetryConfig{
-		InitialInterval:    time.Second,
-		Multiplier:         2,
-		MaxInterval:        30 * time.Second,
-		MaxElapsedTime:     5 * time.Minute,
-		RandomizationFactor: 0.5,
+		InitialInterval:     cfg.Retry.InitialInterval,
+		Multiplier:          cfg.Retry.Multiplier,
+		MaxInterval:         cfg.Retry.MaxInterval,
+		MaxElapsedTime:      cfg.Retry.MaxElapsedTime,
+		RandomizationFactor: cfg.Retry.RandomizationFactor,
 	}
 
 	return kafka.NewConsumer(
@@ -28,5 +26,12 @@ func NewKafkaConsumer(cfg config.KafkaConfig, svc application.OrderServiceInterf
 		l,
 		retryConfig,
 		cfg.MaxRetries,
+		cfg.ProcessingTime,
+		cfg.MinBytes,
+		cfg.MaxBytes,
+		cfg.MaxWait,
+		cfg.CommitInterval,
+		cfg.BatchTimeout,
+		cfg.BatchSize,
 	)
 }

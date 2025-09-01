@@ -2,8 +2,6 @@
 package factory
 
 import (
-	"time"
-
 	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 	infracache "github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/cache"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/infrastructure/config"
@@ -18,7 +16,7 @@ func NewCacheRestorer(cfg *config.Config, c domainrepo.Cache, r domainrepo.Order
 		c,
 		r,
 		l,
-		time.Duration(cfg.Cache.Restoration.Timeout),
+		cfg.Cache.Restoration.Timeout,
 		cfg.Cache.Restoration.BatchSize,
 	)
 }

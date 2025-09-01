@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -16,37 +17,48 @@ import (
 )
 
 type PostgresOrderRepository struct {
-	db     *sqlx.DB
-	logger domainrepo.Logger
+	db               *sqlx.DB
+	logger           domainrepo.Logger
+	statementTimeout time.Duration
 }
 
-func NewPostgresOrderRepository(db *sqlx.DB, logger domainrepo.Logger) (*PostgresOrderRepository, error) {
+func NewPostgresOrderRepository(db *sqlx.DB, logger domainrepo.Logger, statementTimeout time.Duration) (*PostgresOrderRepository, error) {
 	if db == nil {
 		return nil, errors.New("db is nil")
 	}
-	return &PostgresOrderRepository{db: db, logger: logger}, nil
+	return &PostgresOrderRepository{
+		db:               db,
+		logger:           logger,
+		statementTimeout: statementTimeout,
+	}, nil
 }
 
 func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.Order) error {
+	if r.statementTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, r.statementTimeout)
+		defer cancel()
+	}
+
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrTransactionFailed, err)
 	}
 	defer tx.Rollback()
 
-	if err := r.saveOrder(ctx, tx, order); err != nil {
+	if err := r.saveOrderTx(ctx, tx, order); err != nil {
 		return err
 	}
 
-	if err := r.saveDelivery(ctx, tx, order); err != nil {
+	if err := r.saveDeliveryTx(ctx, tx, order); err != nil {
 		return err
 	}
 
-	if err := r.savePayment(ctx, tx, order); err != nil {
+	if err := r.savePaymentTx(ctx, tx, order); err != nil {
 		return err
 	}
 
-	if err := r.saveItems(ctx, tx, order); err != nil {
+	if err := r.saveItemsTx(ctx, tx, order); err != nil {
 		return err
 	}
 
@@ -57,7 +69,7 @@ func (r *PostgresOrderRepository) SaveOrder(ctx context.Context, order entities.
 	return nil
 }
 
-func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
+func (r *PostgresOrderRepository) saveOrderTx(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
 		INSERT INTO orders (
 				order_uid, track_number, entry, locale, internal_signature,
@@ -87,7 +99,7 @@ func (r *PostgresOrderRepository) saveOrder(ctx context.Context, tx *sqlx.Tx, or
 	return nil
 }
 
-func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
+func (r *PostgresOrderRepository) saveDeliveryTx(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
 		INSERT INTO delivery (
 				order_uid, name, phone, zip, city, address, region, email
@@ -123,7 +135,7 @@ func (r *PostgresOrderRepository) saveDelivery(ctx context.Context, tx *sqlx.Tx,
 	return nil
 }
 
-func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
+func (r *PostgresOrderRepository) savePaymentTx(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	query := `
 		INSERT INTO payment (
 				order_uid, transaction, request_id, currency, provider,
@@ -167,7 +179,7 @@ func (r *PostgresOrderRepository) savePayment(ctx context.Context, tx *sqlx.Tx, 
 	return nil
 }
 
-func (r *PostgresOrderRepository) saveItems(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
+func (r *PostgresOrderRepository) saveItemsTx(ctx context.Context, tx *sqlx.Tx, order entities.Order) error {
 	deleteQuery := "DELETE FROM items WHERE order_uid = $1"
 	_, err := tx.ExecContext(ctx, deleteQuery, order.OrderUID)
 	if err != nil {

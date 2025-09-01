@@ -8,8 +8,8 @@ import (
 )
 
 type RestorationConfig struct {
-	Timeout   int `mapstructure:"timeout"`
-	BatchSize int `mapstructure:"batch_size"`
+	Timeout   time.Duration `mapstructure:"timeout"`
+	BatchSize int           `mapstructure:"batch_size"`
 }
 
 type CacheConfig struct {
@@ -19,10 +19,12 @@ type CacheConfig struct {
 }
 
 type DatabaseConfig struct {
-	DSN             string        `mapstructure:"dsn"`
-	MaxOpenConns    int           `mapstructure:"max_open_conns"`
-	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
-	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
+	DSN                    string        `mapstructure:"dsn"`
+	MaxOpenConns           int           `mapstructure:"max_open_conns"`
+	MaxIdleConns           int           `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime        time.Duration `mapstructure:"conn_max_lifetime"`
+	StatementTimeout       time.Duration `mapstructure:"statement_timeout"`
+	IdleInTxSessionTimeout time.Duration `mapstructure:"idle_in_tx_session_timeout"`
 }
 
 type KafkaConfig struct {
@@ -31,7 +33,14 @@ type KafkaConfig struct {
 	GroupID        string        `mapstructure:"group_id"`
 	DLQTopic       string        `mapstructure:"dlq_topic"`
 	MaxRetries     int           `mapstructure:"max_retries"`
-	ProcessingTime time.Duration `yaml:"processing_time"`
+	ProcessingTime time.Duration `mapstructure:"processing_time"`
+	MinBytes       int           `mapstructure:"min_bytes"`
+	MaxBytes       int           `mapstructure:"max_bytes"`
+	MaxWait        time.Duration `mapstructure:"max_wait"`
+	CommitInterval time.Duration `mapstructure:"commit_interval"`
+	BatchTimeout   time.Duration `mapstructure:"batch_timeout"`
+	BatchSize      int           `mapstructure:"batch_size"`
+	Retry          RetryConfig   `mapstructure:"retry"`
 }
 
 type ServerConfig struct {
@@ -56,7 +65,6 @@ type Config struct {
 	Kafka      KafkaConfig      `mapstructure:"kafka"`
 	Server     ServerConfig     `mapstructure:"server"`
 	Migrations MigrationsConfig `mapstructure:"migrations"`
-	Retry      RetryConfig      `mapstructure:"retry"`
 }
 
 func LoadConfig(path string) (*Config, error) {

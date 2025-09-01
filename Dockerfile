@@ -10,5 +10,6 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/orderservice ./
 COPY --from=builder /app/web ./web
+COPY --from=builder /app/config.yml ./
 EXPOSE 8081
 CMD ["./orderservice"]

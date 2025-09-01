@@ -26,6 +26,16 @@ func generateRandomString(length int) string {
 	return string(b)
 }
 
+
+func generateRandomPhone() string {
+	const digits = "0123456789"
+	phone := make([]byte, 10)
+	for i := range phone {
+		phone[i] = digits[rand.Intn(len(digits))]
+	}
+	return "+" + string(phone)
+}
+
 func generateRandomOrderItem() entities.Item {
 	return entities.Item{
 		ChrtID:      rand.Intn(10000000),
@@ -57,7 +67,7 @@ func generateRandomOrder() entities.Order {
 		OOFShard:        generateRandomString(5),
 		Delivery: entities.Delivery{
 			Name:    "Customer " + generateRandomString(5),
-			Phone:   "+" + generateRandomString(10),
+			Phone:   generateRandomPhone(),
 			Zip:     generateRandomString(6),
 			City:    "City_" + generateRandomString(5),
 			Address: "Address_" + generateRandomString(10),

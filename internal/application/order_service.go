@@ -3,6 +3,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,17 +37,18 @@ const (
 )
 
 func (s *orderService) SaveOrder(ctx context.Context, order entities.Order) (OrderResult, error) {
+	const op = "OrderService.SaveOrder"
 	startTime := time.Now()
 	defer s.logSaveDuration(order.OrderUID, startTime)
 
 	if err := s.validateOrder(order); err != nil {
-		return "", err
+		return "", NewAppError(ErrCodeValidation, "order validation failed", op, err)
 	}
 
 	result := s.determineOrderResult(order)
 
 	if err := s.saveToRepo(ctx, order); err != nil {
-		return "", err
+		return "", NewAppError(ErrCodeOrderSaveFailed, "failed to save order", op, err)
 	}
 
 	s.updateCache(order, result)
@@ -78,12 +80,17 @@ func (s *orderService) determineOrderResult(order entities.Order) OrderResult {
 }
 
 func (s *orderService) saveToRepo(ctx context.Context, order entities.Order) error {
+	const op = "OrderService.saveToRepo"
+	
 	if err := s.repo.SaveOrder(ctx, order); err != nil {
 		s.logger.Error("failed to save order to db",
 			"order_id", order.OrderUID,
 			"error", err,
 		)
-		return err
+		if errors.Is(err, domain.ErrOrderNotFound) {
+			return domain.ErrOrderNotFound
+		}
+		return NewAppError(ErrCodeOrderSaveFailed, "failed to save order to repository", op, err)
 	}
 	return nil
 }
@@ -104,6 +111,8 @@ func (s *orderService) logSaveDuration(orderID string, startTime time.Time) {
 }
 
 func (s *orderService) GetOrder(ctx context.Context, id string) (entities.Order, error) {
+	const op = "OrderService.GetOrder"
+	
 	if order, found := s.cache.Get(id); found {
 		s.logger.Info("order retrieved from cache", "order_id", id)
 		return order, nil
@@ -111,11 +120,14 @@ func (s *orderService) GetOrder(ctx context.Context, id string) (entities.Order,
 
 	dbOrder, err := s.fetchFromRepo(ctx, id)
 	if err != nil {
-		s.logger.Warn("order not found in db",
-			"order_id", id,
-			"error", err,
-		)
-		return entities.Order{}, domain.ErrOrderNotFound
+		if errors.Is(err, domain.ErrOrderNotFound) {
+			s.logger.Warn("order not found in db",
+				"order_id", id,
+				"error", err,
+			)
+			return entities.Order{}, domain.ErrOrderNotFound
+		}
+		return entities.Order{}, NewAppError(ErrCodeOrderReadFailed, "failed to retrieve order", op, err)
 	}
 
 	s.cache.Set(dbOrder.OrderUID, dbOrder)
@@ -124,25 +136,35 @@ func (s *orderService) GetOrder(ctx context.Context, id string) (entities.Order,
 }
 
 func (s *orderService) fetchFromRepo(ctx context.Context, id string) (entities.Order, error) {
+	const op = "OrderService.fetchFromRepo"
+	
 	order, err := s.repo.GetOrder(ctx, id)
 	if err != nil {
-		return entities.Order{}, err
+		if errors.Is(err, domain.ErrOrderNotFound) {
+			return entities.Order{}, domain.ErrOrderNotFound
+		}
+		return entities.Order{}, NewAppError(ErrCodeOrderReadFailed, "failed to fetch order from repository", op, err)
 	}
 	return order, nil
 }
 
 func (s *orderService) DeleteOrder(ctx context.Context, id string) error {
+	const op = "OrderService.DeleteOrder"
+	
 	if err := s.repo.DeleteOrder(ctx, id); err != nil {
 		s.logger.Error("failed to delete order from db",
 			"order_id", id,
 			"error", err,
 		)
-		return err
+		if errors.Is(err, domain.ErrOrderNotFound) {
+			return domain.ErrOrderNotFound
+		}
+		return NewAppError(ErrCodeOrderDeleteFailed, "failed to delete order", op, err)
 	}
 
-	ok := s.cache.Delete(id)
-	if !ok {
-		s.logger.Warn("order not found in cache", "order_id", id)
+	deleted := s.cache.Delete(id)
+	if !deleted {
+		s.logger.Warn("order not found in cache during deletion", "order_id", id)
 	}
 
 	s.logger.Info("order deleted", "order_id", id)
@@ -150,11 +172,13 @@ func (s *orderService) DeleteOrder(ctx context.Context, id string) error {
 }
 
 func (s *orderService) ClearOrders(ctx context.Context) error {
+	const op = "OrderService.ClearOrders"
+	
 	s.cache.Clear()
 
 	if err := s.repo.ClearOrders(ctx); err != nil {
 		s.logger.Error("failed to clear orders from db", "error", err)
-		return err
+		return NewAppError(ErrCodeOrderDeleteFailed, "failed to clear orders", op, err)
 	}
 
 	s.logger.Info("all orders cleared")
@@ -162,11 +186,9 @@ func (s *orderService) ClearOrders(ctx context.Context) error {
 }
 
 func (s *orderService) GetAllOrders(ctx context.Context) ([]entities.Order, error) {
-	ordersFromCache, err := s.cache.GetAll(s.getAllLimit)
-	if err != nil {
-		s.logger.Warn("failed to retrieve orders from cache, falling back to database",
-			"error", err)
-	}
+	const op = "OrderService.GetAllOrders"
+	
+	ordersFromCache := s.cache.GetAll(s.getAllLimit)
 
 	var orders []entities.Order
 	var source string
@@ -177,10 +199,11 @@ func (s *orderService) GetAllOrders(ctx context.Context) ([]entities.Order, erro
 	} else {
 		s.logger.Info("cache is empty, retrieving orders from database")
 
+		var err error
 		orders, err = s.repo.GetAllOrders(ctx, s.getAllLimit, 0)
 		if err != nil {
 			s.logger.Error("failed to retrieve orders from database", "error", err)
-			return nil, fmt.Errorf("failed to retrieve orders from database: %w", err)
+			return nil, NewAppError(ErrCodeOrdersReadFailed, "failed to retrieve orders from database", op, err)
 		}
 
 		s.logger.Info("populating cache with orders from database", "count", len(orders))

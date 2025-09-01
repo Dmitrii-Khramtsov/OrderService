@@ -41,7 +41,7 @@ type App struct {
 }
 
 func NewApp() (*App, error) {
-	cfg, err := config.LoadConfig("config.yml")
+	cfg, err := config.LoadConfig("/app/config.yml")
 	if err != nil {
 		return nil, err
 	}

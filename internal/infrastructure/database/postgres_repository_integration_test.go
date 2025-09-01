@@ -125,7 +125,7 @@ func TestPostgresOrderRepository_Integration(t *testing.T) {
 	db := setupTestDB(t)
 	logger, _ := logger.NewLogger(logger.DEV)
 
-	repo, err := NewPostgresOrderRepository(db, logger)
+	repo, err := NewPostgresOrderRepository(db, logger, 30*time.Second)
 	require.NoError(t, err)
 
 	t.Run("Save and Get Order", func(t *testing.T) {

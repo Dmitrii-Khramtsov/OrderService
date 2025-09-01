@@ -17,16 +17,18 @@ func (m *mockCache) Get(key string) (entities.Order, bool) {
 	args := m.Called(key)
 	return args.Get(0).(entities.Order), args.Bool(1)
 }
-func (m *mockCache) Set(key string, order entities.Order) { m.Called(key, order) }
+func (m *mockCache) Set(key string, order entities.Order) { m.Called(key, order)}
 func (m *mockCache) Delete(key string) bool { return m.Called(key).Bool(0) }
 func (m *mockCache) Clear() { m.Called() }
-func (m *mockCache) GetAll(limit int) ([]entities.Order, error) {
+func (m *mockCache) GetAll(limit int) []entities.Order {
 	args := m.Called(limit)
-	return args.Get(0).([]entities.Order), args.Error(1)
+	return args.Get(0).([]entities.Order)
 }
+
 func (m *mockCache) Shutdown(ctx context.Context) error { return m.Called(ctx).Error(0) }
 
 type mockRepo struct{ mock.Mock }
+
 func (m *mockRepo) SaveOrder(ctx context.Context, order entities.Order) error {
 	return m.Called(ctx, order).Error(0)
 }
@@ -38,18 +40,24 @@ func (m *mockRepo) GetAllOrders(ctx context.Context, limit, offset int) ([]entit
 	args := m.Called(ctx, limit, offset)
 	return args.Get(0).([]entities.Order), args.Error(1)
 }
-func (m *mockRepo) GetOrdersCount(ctx context.Context) (int, error) { args := m.Called(ctx); return args.Int(0), args.Error(1) }
-func (m *mockRepo) DeleteOrder(ctx context.Context, id string) error { return m.Called(ctx, id).Error(0) }
+func (m *mockRepo) GetOrdersCount(ctx context.Context) (int, error) {
+	args := m.Called(ctx)
+	return args.Int(0), args.Error(1)
+}
+func (m *mockRepo) DeleteOrder(ctx context.Context, id string) error {
+	return m.Called(ctx, id).Error(0)
+}
 func (m *mockRepo) ClearOrders(ctx context.Context) error { return m.Called(ctx).Error(0) }
-func (m *mockRepo) Shutdown(ctx context.Context) error { return m.Called(ctx).Error(0) }
+func (m *mockRepo) Shutdown(ctx context.Context) error    { return m.Called(ctx).Error(0) }
 
 type mockLogger struct{ mock.Mock }
+
 func (m *mockLogger) Debug(msg string, fields ...interface{}) { m.Called(msg, fields) }
 func (m *mockLogger) Info(msg string, fields ...interface{})  { m.Called(msg, fields) }
 func (m *mockLogger) Warn(msg string, fields ...interface{})  { m.Called(msg, fields) }
 func (m *mockLogger) Error(msg string, fields ...interface{}) { m.Called(msg, fields) }
-func (m *mockLogger) Sync() error { return m.Called().Error(0) }
-func (m *mockLogger) Shutdown(ctx context.Context) error { return m.Called(ctx).Error(0) }
+func (m *mockLogger) Sync() error                             { return m.Called().Error(0) }
+func (m *mockLogger) Shutdown(ctx context.Context) error      { return m.Called(ctx).Error(0) }
 
 func sampleOrder() entities.Order {
 	return entities.Order{

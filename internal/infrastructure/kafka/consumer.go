@@ -48,24 +48,30 @@ func NewConsumer(
 	retryConfig *RetryConfig,
 	maxRetries int,
 	processingTime time.Duration,
+	minBytes int,
+	maxBytes int,
+	maxWait time.Duration,
+	commitInterval time.Duration,
+	batchTimeout time.Duration,
+	batchSize int,
 ) domainrepo.EventConsumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        brokers,
 		Topic:          topic,
 		GroupID:        groupID,
 		StartOffset:    kafka.FirstOffset,
-		MinBytes:       10e3,
-		MaxBytes:       10e6,
-		MaxWait:        1 * time.Second,
-		CommitInterval: 1 * time.Second,
+		MinBytes:       minBytes,
+		MaxBytes:       maxBytes,
+		MaxWait:        maxWait,
+		CommitInterval: commitInterval,
 	})
 
 	dlqWriter := &kafka.Writer{
 		Addr:                   kafka.TCP(brokers...),
 		Topic:                  dlqTopic,
 		Balancer:               &kafka.LeastBytes{},
-		BatchTimeout:           100 * time.Millisecond,
-		BatchSize:              1,
+		BatchTimeout:           batchTimeout,
+		BatchSize:              batchSize,
 		AllowAutoTopicCreation: true,
 	}
 
@@ -274,7 +280,6 @@ func (c *Consumer) Shutdown(ctx context.Context) error {
 		}
 	}()
 
-	// Wait for both close operations
 	var firstErr error
 	for i := 0; i < 2; i++ {
 		select {
@@ -288,7 +293,6 @@ func (c *Consumer) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	// Wait for consumer goroutine to finish
 	done := make(chan struct{})
 	go func() {
 		c.wg.Wait()

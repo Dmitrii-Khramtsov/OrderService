@@ -18,7 +18,7 @@ func RunMigrations(ctx context.Context, db *sqlx.DB, migrationsPath string, l do
 	}
 
 	retryPolicy := backoff.NewExponentialBackOff()
-	retryPolicy.MaxElapsedTime = cfg.Retry.MaxElapsedTime
+	retryPolicy.MaxElapsedTime = cfg.Kafka.Retry.MaxElapsedTime
 
 	if err := backoff.Retry(operation, retryPolicy); err != nil {
 		l.Error("failed to run migrations after retries", "error", err)
