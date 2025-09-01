@@ -73,12 +73,24 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.logger.Info("order saved successfully",
+	var statusCode int
+	switch result {
+	case application.OrderCreated:
+		statusCode = http.StatusCreated
+	case application.OrderUpdated:
+		statusCode = http.StatusOK
+	case application.OrderExists:
+		statusCode = http.StatusOK
+	default:
+		statusCode = http.StatusOK
+	}
+
+	h.logger.Info("order processed",
 		"order_id", order.OrderUID,
 		"result", string(result),
 	)
 
-	h.writeJSON(w, http.StatusCreated, map[string]interface{}{
+	h.writeJSON(w, statusCode, map[string]interface{}{
 		"order_id": order.OrderUID,
 		"result":   string(result),
 		"status":   "success",
