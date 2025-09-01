@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -29,23 +30,24 @@ func NewOrderHandler(s application.OrderServiceInterface, l domainrepo.Logger) *
 
 func (h *OrderHandler) writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
 
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		h.logger.Error("failed to encode JSON response",
-			"error", err,
-			"status", status,
-		)
-		
-		w.Header().Set("Content-Type", "text/plain")
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(v); err != nil {
+		h.logger.Error("Failed to encode JSON", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Internal server error"))
+		return
+	}
+
+	w.WriteHeader(status)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		h.logger.Error("Failed to write response", "error", err)
 	}
 }
 
 func (h *OrderHandler) writeError(w http.ResponseWriter, status int, err *httperrors.HTTPError) {
-	h.writeJSON(w, status, map[string]interface{}{
-		"error": err,
+	h.writeJSON(w, status, map[string]string{
+		"error": err.Message,
 	})
 }
 

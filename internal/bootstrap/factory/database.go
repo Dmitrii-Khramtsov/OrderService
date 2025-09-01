@@ -2,6 +2,7 @@
 package factory
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -22,11 +23,11 @@ func NewDatabase(cfg *config.Config, l domainrepo.Logger) (*sqlx.DB, error) {
 	db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
 	db.SetConnMaxLifetime(cfg.Database.ConnMaxLifetime)
 
-	_, err = db.Exec(fmt.Sprintf(
-		"SET statement_timeout = %d; SET idle_in_transaction_session_timeout = %d;",
-		cfg.Database.StatementTimeout.Milliseconds(),
-		cfg.Database.IdleInTxSessionTimeout.Milliseconds(),
-	))
+	_, err = db.ExecContext(context.Background(),
+    "SET statement_timeout = $1; SET idle_in_transaction_session_timeout = $2;",
+    cfg.Database.StatementTimeout.Milliseconds(),
+    cfg.Database.IdleInTxSessionTimeout.Milliseconds(),
+	)
 	if err != nil {
 		l.Error("failed to set timeouts", "error", err)
 	}

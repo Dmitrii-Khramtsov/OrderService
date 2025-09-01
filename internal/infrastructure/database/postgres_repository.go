@@ -3,7 +3,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -226,24 +225,21 @@ func (r *PostgresOrderRepository) saveItemsTx(ctx context.Context, tx *sqlx.Tx, 
 func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (entities.Order, error) {
 	query := `
 		SELECT 
-				o.*,
-				d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
-				p.transaction, p.request_id, p.currency, p.provider, p.amount,
-				p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
-				i.chrt_id, i.track_number, i.price, i.rid, i.name as item_name,
-				i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
+			o.*,
+			d.name, d.phone, d.zip, d.city, d.address, d.region, d.email,
+			p.transaction, p.request_id, p.currency, p.provider, p.amount,
+			p.payment_dt, p.bank, p.delivery_cost, p.goods_total, p.custom_fee,
+			i.chrt_id, i.track_number, i.price, i.rid, i.name as item_name,
+			i.sale, i.size, i.total_price, i.nm_id, i.brand, i.status
 		FROM orders o
 		LEFT JOIN delivery d ON o.order_uid = d.order_uid
 		LEFT JOIN payment p ON o.order_uid = p.order_uid
 		LEFT JOIN items i ON o.order_uid = i.order_uid
 		WHERE o.order_uid = $1
-    `
+	`
 
 	rows, err := r.db.QueryxContext(ctx, query, id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return entities.Order{}, domain.ErrOrderNotFound
-		}
 		r.logger.Error("failed to get order", "error", err, "order_uid", id)
 		return entities.Order{}, fmt.Errorf("%w: %v", ErrQueryFailed, err)
 	}
@@ -269,7 +265,6 @@ func (r *PostgresOrderRepository) GetOrder(ctx context.Context, id string) (enti
 			&item.ChrtID, &item.TrackNumber, &item.Price, &item.RID, &item.Name,
 			&item.Sale, &item.Size, &item.TotalPrice, &item.NmID, &item.Brand, &item.Status,
 		)
-
 		if err != nil {
 			r.logger.Error("failed to scan order", "error", err, "order_uid", id)
 			return entities.Order{}, fmt.Errorf("%w: %v", ErrQueryFailed, err)

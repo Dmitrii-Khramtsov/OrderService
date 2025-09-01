@@ -3,10 +3,12 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 
+	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain"
 	"github.com/Dmitrii-Khramtsov/orderservice/internal/domain/entities"
 	domainrepo "github.com/Dmitrii-Khramtsov/orderservice/internal/domain/repository"
 )
@@ -46,8 +48,13 @@ func (r *RetryingOrderRepository) withRetry(ctx context.Context, operation func(
 		case <-ctx.Done():
 			return backoff.Permanent(ctx.Err())
 		default:
-			return operation()
 		}
+
+		err := operation()
+		if err != nil && errors.Is(err, domain.ErrOrderNotFound) {
+			return backoff.Permanent(err)
+		}
+		return err
 	}, expBackoff)
 }
 
